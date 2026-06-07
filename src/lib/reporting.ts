@@ -6,29 +6,10 @@
  * history) — the live pipeline (CANDIDATES) is far too small to express
  * historical strengths. Replaced by warehouse queries once persistence lands.
  */
-import { CANDIDATES } from "@/lib/candidates";
+import { CANDIDATES, extractedSkills } from "@/lib/candidates";
+import type { SkillFamily } from "@/lib/types";
 
 /* --------------------------- Skill & geo mapping --------------------------- */
-
-export type SkillFamily =
-  | "Software & Cloud"
-  | "Data & Analytics"
-  | "Healthcare"
-  | "Finance & Accounting"
-  | "Design & Product"
-  | "Field & Operations";
-
-/** Map a job title to a skill family (used to tie live pipeline to reports). */
-export function roleToSkill(role: string): SkillFamily {
-  const r = role.toLowerCase();
-  if (/(devops|backend|architect|qa|engineer)/.test(r) && !/data/.test(r))
-    return "Software & Cloud";
-  if (/(data|analyst)/.test(r)) return "Data & Analytics";
-  if (/(rn|clinical|care|pharmacy|nurse)/.test(r)) return "Healthcare";
-  if (/(account|finance|payroll)/.test(r)) return "Finance & Accounting";
-  if (/(design|product)/.test(r)) return "Design & Product";
-  return "Field & Operations";
-}
 
 /** Two-letter state from a "City, ST" style location. */
 export function stateFromLocation(location: string): string {
@@ -36,17 +17,33 @@ export function stateFromLocation(location: string): string {
   return m ? m[1] : "—";
 }
 
-/** Live pipeline distribution by skill (ties current data to historical view). */
+/** Live pipeline distribution by AI-classified skill family (§10, §20). */
 export function livePipelineBySkill(): { name: string; value: number }[] {
   const counts = new Map<string, number>();
   for (const c of CANDIDATES) {
-    const s = roleToSkill(c.role);
+    const s = extractedSkills(c).family;
     counts.set(s, (counts.get(s) ?? 0) + 1);
   }
   return [...counts.entries()]
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value);
 }
+
+/** Top granular skills across the live pipeline, from AI résumé extraction. */
+export function topPipelineSkills(): { name: string; value: number }[] {
+  const counts = new Map<string, number>();
+  for (const c of CANDIDATES) {
+    for (const skill of extractedSkills(c).skills) {
+      counts.set(skill, (counts.get(skill) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
+}
+
+/** Number of résumés AI-parsed (one per live candidate, in this mock). */
+export const RESUMES_PARSED = CANDIDATES.length;
 
 /* ---------------------------- Skill strengths ------------------------------ */
 

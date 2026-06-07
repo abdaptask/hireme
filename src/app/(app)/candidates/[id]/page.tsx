@@ -236,6 +236,22 @@ export default async function CandidateRecordPage({
                 />
               )}
             </div>
+            <div className="bg-card rounded-xl border p-4 shadow-xs">
+              <h3 className="text-card-heading mb-1 flex items-center gap-1.5">
+                <Sparkles className="text-ai size-4" /> Skills
+              </h3>
+              <p className="text-metadata mb-2">
+                AI-extracted from résumé · {c.extracted.family} ·{" "}
+                {Math.round(c.extracted.confidence * 100)}% confidence
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {c.extracted.skills.map((s) => (
+                  <Badge key={s} variant="outline" className="font-normal">
+                    {s}
+                  </Badge>
+                ))}
+              </div>
+            </div>
             {c.tags.length > 0 && (
               <div className="bg-card rounded-xl border p-4 shadow-xs">
                 <h3 className="text-card-heading mb-2">Tags</h3>

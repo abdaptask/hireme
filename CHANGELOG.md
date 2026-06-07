@@ -78,6 +78,18 @@ bump delivers a new vertical slice from the spec ([docs/ROADMAP.md](docs/ROADMAP
   satisfaction), geographical strengths, a client-ready strengths summary, and
   current pipeline tied to specialty areas.
 - **Theme bootstrap** now uses `next/script` `beforeInteractive` (clean console).
+- **Org hierarchy** (§5, §36, §55) — modeled manager → *optional* team lead → IC
+  for recruiting and onboarding (`src/lib/org.ts`); candidate data normalized so
+  recruiters and onboarders are distinct people. Recruiting Manager workspace
+  renders the org tree (team-lead pods + direct-to-manager reports) for both
+  functions; Team Lead pod is org-derived.
+- **AI-extracted skills** (§10, §20) — each candidate's résumé is parsed at
+  onboarding start; the AI classifies a skill family and extracts granular
+  skills (mocked deterministically; real parsing arrives with the AI layer).
+  Surfaced on the Candidate 360 ("Skills — AI-extracted from résumé" with
+  confidence) and now **drives the Skills & Specialty report** — top granular
+  pipeline skills + AI-classified family distribution, with an explainable note
+  that the report runs off résumé classification.
 
 > Decisions for the v0.2 persistence half: **Neon serverless Postgres** (via
 > Prisma) and **deferred real auth** (this dev role switcher stands in until a

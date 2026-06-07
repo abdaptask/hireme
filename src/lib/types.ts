@@ -29,6 +29,15 @@ export type RiskLevel =
   | "at-risk"
   | "unlikely";
 
+/** AI-classified skill families (from résumé parsing at onboarding start). */
+export type SkillFamily =
+  | "Software & Cloud"
+  | "Data & Analytics"
+  | "Healthcare"
+  | "Finance & Accounting"
+  | "Design & Product"
+  | "Field & Operations";
+
 /** Personas with dedicated workspaces (§5) plus external portal roles (§27). */
 export type PersonaId =
   | "super-admin"

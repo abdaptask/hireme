@@ -2,7 +2,12 @@
  * Candidate 360 mock data (CLAUDE.md §15 360 record, §100 Candidate 360 UI).
  * Deterministic; binds to Prisma/Neon in the persistence half of v0.2.
  */
-import type { PipelineStatus, RiskLevel, StatusTone } from "@/lib/types";
+import type {
+  PipelineStatus,
+  RiskLevel,
+  SkillFamily,
+  StatusTone,
+} from "@/lib/types";
 
 export type CandidateSummary = {
   id: string;
@@ -67,7 +72,49 @@ export type CandidateDetail = CandidateSummary & {
   tasks: CandidateTask[];
   documents: CandidateDocument[];
   openExceptions: { id: string; title: string; tone: StatusTone }[];
+  extracted: ExtractedSkills;
 };
+
+/**
+ * AI résumé extraction (§10, §20). At onboarding start each candidate's résumé
+ * is parsed; the AI classifies a skill family and extracts granular skills.
+ * Mocked deterministically by role here; real parsing arrives with the AI
+ * layer (v0.9) and writes the same shape.
+ */
+export type ExtractedSkills = {
+  family: SkillFamily;
+  skills: string[];
+  /** AI classification confidence (mock). */
+  confidence: number;
+};
+
+const ROLE_SKILLS: Record<string, ExtractedSkills> = {
+  "Senior Data Analyst": { family: "Data & Analytics", skills: ["SQL", "Python", "Tableau", "Data Modeling"], confidence: 0.96 },
+  "Data Engineer": { family: "Data & Analytics", skills: ["Spark", "Airflow", "Python", "ETL"], confidence: 0.95 },
+  "Financial Analyst": { family: "Finance & Accounting", skills: ["Financial Modeling", "Excel", "Forecasting", "Variance Analysis"], confidence: 0.93 },
+  "Accountant": { family: "Finance & Accounting", skills: ["GAAP", "Reconciliation", "AP/AR", "Excel"], confidence: 0.94 },
+  "DevOps Engineer": { family: "Software & Cloud", skills: ["AWS", "Kubernetes", "Terraform", "CI/CD"], confidence: 0.97 },
+  "Backend Engineer": { family: "Software & Cloud", skills: ["Node.js", "PostgreSQL", "REST APIs", "Docker"], confidence: 0.96 },
+  "Solutions Architect": { family: "Software & Cloud", skills: ["Cloud Architecture", "AWS", "Microservices", "System Design"], confidence: 0.95 },
+  "QA Engineer": { family: "Software & Cloud", skills: ["Test Automation", "Selenium", "API Testing", "CI/CD"], confidence: 0.92 },
+  "Product Designer": { family: "Design & Product", skills: ["Figma", "Design Systems", "Prototyping", "UX Research"], confidence: 0.94 },
+  "RN — ICU": { family: "Healthcare", skills: ["Critical Care", "ACLS", "Patient Monitoring", "EHR"], confidence: 0.97 },
+  "Clinical Coordinator": { family: "Healthcare", skills: ["Care Coordination", "EHR", "Scheduling", "Compliance"], confidence: 0.95 },
+  "Care Navigator": { family: "Healthcare", skills: ["Patient Advocacy", "Care Plans", "EHR", "Communication"], confidence: 0.93 },
+  "Pharmacy Technician": { family: "Healthcare", skills: ["Pharmacology", "Dispensing", "Inventory", "Compliance"], confidence: 0.94 },
+  "Field Technician": { family: "Field & Operations", skills: ["Field Service", "Diagnostics", "Safety", "Scheduling"], confidence: 0.9 },
+};
+
+const FALLBACK_SKILLS: ExtractedSkills = {
+  family: "Software & Cloud",
+  skills: ["General"],
+  confidence: 0.7,
+};
+
+/** AI-extracted skills for a candidate (by parsed résumé → role). */
+export function extractedSkills(c: CandidateSummary): ExtractedSkills {
+  return ROLE_SKILLS[c.role] ?? FALLBACK_SKILLS;
+}
 
 export function slugify(name: string) {
   return name
@@ -449,6 +496,7 @@ export function getCandidate(id: string): CandidateDetail | undefined {
     timeline: timelineFor(c),
     tasks: tasksFor(c),
     documents: documentsFor(),
+    extracted: extractedSkills(c),
     openExceptions:
       c.risk === "at-risk" || c.risk === "unlikely"
         ? [

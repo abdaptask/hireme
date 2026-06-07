@@ -9,7 +9,9 @@ import { cn } from "@/lib/utils";
 import {
   GEO_STRENGTHS,
   livePipelineBySkill,
+  RESUMES_PARSED,
   SKILL_STRENGTHS,
+  topPipelineSkills,
 } from "@/lib/reporting";
 
 export const metadata: Metadata = { title: "Skills & Specialty" };
@@ -25,6 +27,8 @@ export default function SpecialtyReportPage() {
   const maxSkill = Math.max(...SKILL_STRENGTHS.map((s) => s.placements));
   const maxGeo = Math.max(...GEO_STRENGTHS.map((g) => g.placements));
   const live = livePipelineBySkill();
+  const topSkills = topPipelineSkills().slice(0, 12);
+  const maxSkillCount = Math.max(...topSkills.map((s) => s.value), 1);
 
   return (
     <PageContainer className="flex flex-col gap-6">
@@ -36,6 +40,15 @@ export default function SpecialtyReportPage() {
           title="Skills & Specialty"
           description="Where we win — historical placement strength by skill and geography (trailing 12 months)."
         />
+      </div>
+
+      <div className="bg-ai-muted/40 border-ai/20 flex items-start gap-2 rounded-lg border px-3 py-2 text-xs">
+        <Sparkles className="text-ai mt-0.5 size-3.5 shrink-0" />
+        <span className="text-muted-foreground">
+          Skill data is <span className="text-foreground font-medium">AI-extracted from résumés</span> at
+          onboarding start and classified into families — {RESUMES_PARSED} résumés parsed in the current
+          pipeline. The report runs off that classification.
+        </span>
       </div>
 
       {/* Client-ready strengths summary */}
@@ -142,9 +155,30 @@ export default function SpecialtyReportPage() {
       </WidgetCard>
 
       <WidgetCard
-        title="Current pipeline by skill"
+        title="Top skills in pipeline"
+        action={<Badge variant="secondary" className="gap-1 text-[10px]"><Sparkles className="size-3" /> AI-extracted</Badge>}
+        description="Granular skills parsed from current candidates' résumés"
+      >
+        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {topSkills.map((s) => (
+            <li key={s.name} className="flex items-center gap-3">
+              <span className="w-32 shrink-0 truncate text-sm">{s.name}</span>
+              <div className="bg-muted relative h-2 flex-1 overflow-hidden rounded-full">
+                <span
+                  className="bg-ai absolute inset-y-0 left-0 rounded-full"
+                  style={{ width: `${Math.max((s.value / maxSkillCount) * 100, 8)}%` }}
+                />
+              </div>
+              <span className="text-muted-foreground w-5 text-right text-xs tabular-nums">{s.value}</span>
+            </li>
+          ))}
+        </ul>
+      </WidgetCard>
+
+      <WidgetCard
+        title="Current pipeline by skill family"
         action={<Badge variant="secondary" className="text-[10px]">live</Badge>}
-        description="Ties today's active candidates to our specialty areas"
+        description="AI-classified families across today's active candidates"
       >
         <ul className="flex flex-col gap-2">
           {live.map((s) => (
