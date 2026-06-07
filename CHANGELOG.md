@@ -90,6 +90,11 @@ bump delivers a new vertical slice from the spec ([docs/ROADMAP.md](docs/ROADMAP
   confidence) and now **drives the Skills & Specialty report** — top granular
   pipeline skills + AI-classified family distribution, with an explainable note
   that the report runs off résumé classification.
+- **Reports catalog** (§49) — Reports hub rebuilt to mirror the real ApTask
+  report menu: Financial Reports, Recruiters, and Back Office categories with
+  every report listed. Each is a placeholder (`/reports/[slug]`) to be built
+  individually; the two analytics reports already built (Financial Performance,
+  Skills & Specialty) surface as live "Available now" previews.
 
 > Decisions for the v0.2 persistence half: **Neon serverless Postgres** (via
 > Prisma) and **deferred real auth** (this dev role switcher stands in until a

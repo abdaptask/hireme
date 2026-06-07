@@ -2,117 +2,60 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import {
   ArrowRight,
-  BarChart3,
+  Briefcase,
+  ChevronRight,
   DollarSign,
-  GraduationCap,
-  ShieldCheck,
   Sparkles,
-  TrendingUp,
   Users,
 } from "lucide-react";
 import { PageContainer, PageHeader } from "@/components/page";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-
-type ReportCard = {
-  id: string;
-  title: string;
-  description: string;
-  icon: typeof BarChart3;
-  href?: string;
-  spec: string;
-  roadmap?: string;
-};
-
-const REPORTS: ReportCard[] = [
-  {
-    id: "financial",
-    title: "Financial performance",
-    description:
-      "Revenue, margin and cost-per-onboarding — historical trends and period-over-period comparison.",
-    icon: DollarSign,
-    href: "/reports/financial",
-    spec: "§67.4",
-  },
-  {
-    id: "specialty",
-    title: "Skills & specialty strengths",
-    description:
-      "Where we win: top skills placed, success rates, time-to-fill, and geographical strength.",
-    icon: GraduationCap,
-    href: "/reports/specialty",
-    spec: "§49",
-  },
-  {
-    id: "operational",
-    title: "Operational health",
-    description: "SLA, exceptions, vendor turnaround, and throughput.",
-    icon: TrendingUp,
-    spec: "§34.6",
-    roadmap: "v0.7.0",
-  },
-  {
-    id: "workforce",
-    title: "Workforce & experience",
-    description: "Candidate, consultant and client satisfaction and effort.",
-    icon: Users,
-    spec: "§67.5",
-    roadmap: "v0.7.0",
-  },
-  {
-    id: "compliance",
-    title: "Compliance & screening",
-    description: "Readiness, expirations, adjudication and audit packets.",
-    icon: ShieldCheck,
-    spec: "§57",
-    roadmap: "v0.7.0",
-  },
-  {
-    id: "ai",
-    title: "AI & automation",
-    description: "Recommendation accuracy, automation coverage, AI cost.",
-    icon: Sparkles,
-    spec: "§64",
-    roadmap: "v0.9.0",
-  },
-];
+import {
+  PREVIEW_REPORTS,
+  REPORT_CATALOG,
+  type ReportCategory,
+} from "@/lib/report-catalog";
 
 export const metadata: Metadata = { title: "Reports" };
 
-function Card({ r }: { r: ReportCard }) {
-  const live = !!r.href;
-  const inner = (
-    <div
-      className={cn(
-        "bg-card flex h-full flex-col gap-3 rounded-xl border p-4 shadow-xs transition-colors",
-        live ? "hover:border-primary/40" : "opacity-70",
-      )}
-    >
-      <div className="flex items-start justify-between">
-        <span className="bg-primary/10 text-primary flex size-9 items-center justify-center rounded-lg">
-          <r.icon className="size-4.5" />
+const CATEGORY_ICON: Record<string, typeof DollarSign> = {
+  financial: DollarSign,
+  recruiters: Users,
+  "back-office": Briefcase,
+};
+
+function CategoryCard({ category }: { category: ReportCategory }) {
+  const Icon = CATEGORY_ICON[category.id] ?? Briefcase;
+  return (
+    <section className="bg-card flex flex-col rounded-xl border shadow-xs">
+      <div className="flex items-center gap-2 border-b px-4 py-2.5">
+        <span className="bg-primary/10 text-primary flex size-7 items-center justify-center rounded-md">
+          <Icon className="size-4" />
         </span>
-        {live ? (
-          <ArrowRight className="text-muted-foreground size-4" />
-        ) : (
-          <Badge variant="secondary" className="text-[10px]">
-            {r.roadmap}
-          </Badge>
-        )}
+        <h2 className="text-card-heading">{category.label}</h2>
+        <span className="text-muted-foreground ml-auto text-xs tabular-nums">
+          {category.reports.length}
+        </span>
       </div>
-      <div>
-        <p className="text-card-heading">{r.title}</p>
-        <p className="text-muted-foreground mt-1 text-sm">{r.description}</p>
-      </div>
-      <span className="text-metadata mt-auto">Spec {r.spec}</span>
-    </div>
-  );
-  return live ? (
-    <Link href={r.href!} className="focus-visible:ring-ring rounded-xl focus-visible:ring-2 focus-visible:outline-none">
-      {inner}
-    </Link>
-  ) : (
-    inner
+      <ul className="flex flex-col p-1.5">
+        {category.reports.map((r) => (
+          <li key={r.slug}>
+            <Link
+              href={`/reports/${r.slug}`}
+              className="hover:bg-muted/60 focus-visible:ring-ring flex items-center gap-2 rounded-md px-2.5 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+            >
+              <span className="flex-1 truncate">{r.name}</span>
+              {r.hasSubReports && (
+                <Badge variant="outline" className="text-[10px]">
+                  sub-reports
+                </Badge>
+              )}
+              <ChevronRight className="text-muted-foreground size-4" />
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -121,13 +64,40 @@ export default function ReportsHubPage() {
     <PageContainer className="flex flex-col gap-6">
       <PageHeader
         title="Reports"
-        description="Enterprise reporting catalog — financial, specialty, operational, and more."
+        description="Enterprise reporting catalog. Each report is a placeholder — built out individually as we reach it."
       />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {REPORTS.map((r) => (
-          <Card key={r.id} r={r} />
-        ))}
-      </div>
+
+      {/* Live analytics previews already built in this app */}
+      <section>
+        <h2 className="text-section-heading mb-2.5 flex items-center gap-1.5">
+          <Sparkles className="text-ai size-4" /> Available now
+        </h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {PREVIEW_REPORTS.map((r) => (
+            <Link
+              key={r.href}
+              href={r.href}
+              className="bg-card hover:border-primary/40 focus-visible:ring-ring flex items-center justify-between gap-3 rounded-xl border p-4 shadow-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
+            >
+              <div className="min-w-0">
+                <p className="text-card-heading">{r.name}</p>
+                <p className="text-muted-foreground mt-0.5 text-sm">{r.note}</p>
+              </div>
+              <ArrowRight className="text-muted-foreground size-4 shrink-0" />
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* Real ApTask report catalog — placeholders */}
+      <section>
+        <h2 className="text-section-heading mb-2.5">Report catalog</h2>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          {REPORT_CATALOG.map((c) => (
+            <CategoryCard key={c.id} category={c} />
+          ))}
+        </div>
+      </section>
     </PageContainer>
   );
 }
