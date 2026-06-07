@@ -239,10 +239,9 @@ export const NAV_SECTIONS: NavSection[] = [
       {
         id: "exceptions",
         label: "Exceptions",
-        href: "/planned/exceptions",
+        href: "/exceptions",
         icon: TriangleAlert,
-        status: "planned",
-        roadmap: "v0.5.0",
+        status: "live",
         spec: "§18",
         description: "Exception Management Control Tower.",
       },

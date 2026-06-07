@@ -11,6 +11,11 @@ bump delivers a new vertical slice from the spec ([docs/ROADMAP.md](docs/ROADMAP
 
 ## [Unreleased]
 
+- **Exception Control Tower** (§18, §104) at `/exceptions` — open/critical/
+  SLA-breached/start-impact stats, category (Pareto) and severity distributions,
+  and a severity-prioritized exceptions table (owner, age, SLA, start-date
+  impact, status) linking to the Candidate 360. Exceptions nav item now live.
+
 ### v0.2.0 (in progress) — Identity & navigation entitlements
 
 - **Roles & entitlements model** (§42) — six roles (the personas) with default
