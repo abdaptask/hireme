@@ -219,10 +219,9 @@ export const NAV_SECTIONS: NavSection[] = [
       {
         id: "onboarding",
         label: "Onboarding",
-        href: "/planned/onboarding",
+        href: "/onboarding",
         icon: ClipboardList,
-        status: "planned",
-        roadmap: "v0.3.0",
+        status: "live",
         spec: "§14",
         description: "Full lifecycle timeline from Day -14 to Day 30.",
       },

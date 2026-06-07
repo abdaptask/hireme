@@ -7,6 +7,7 @@ import { ChevronRight, Search, X } from "lucide-react";
 import { PageContainer, PageHeader } from "@/components/page";
 import { PipelineStatusBadge, RiskBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
+import { InitiateOnboardingSheet } from "@/components/onboarding/initiate-sheet";
 import { CANDIDATES } from "@/lib/candidates";
 import { cn } from "@/lib/utils";
 
@@ -31,9 +32,12 @@ export default function CandidatesPage() {
         title="Candidates"
         description="Persistent workforce records — open any candidate's 360 view."
         actions={
-          <Badge variant="outline" className="tabular-nums">
-            {CANDIDATES.length} active
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="tabular-nums">
+              {CANDIDATES.length} active
+            </Badge>
+            <InitiateOnboardingSheet />
+          </div>
         }
       />
 
@@ -142,7 +146,32 @@ export default function CandidatesPage() {
                     {c.recruiter}
                   </td>
                   <td className="px-3">
-                    <ChevronRight className="text-muted-foreground size-4" />
+                    <div className="flex items-center gap-2">
+                      <InitiateOnboardingSheet
+                        prefill={{
+                          firstName: c.name.split(" ")[0],
+                          lastName: c.name.split(" ").slice(1).join(" "),
+                          candidateEmail: c.email,
+                          mobile: c.phone,
+                          client: c.client,
+                          jobTitle: c.role,
+                          employmentType:
+                            c.employmentType === "C2C"
+                              ? "contract"
+                              : "full-time",
+                        }}
+                        trigger={
+                          <button
+                            type="button"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-muted-foreground hover:text-primary text-xs transition-colors"
+                          >
+                            Start
+                          </button>
+                        }
+                      />
+                      <ChevronRight className="text-muted-foreground size-4" />
+                    </div>
                   </td>
                 </tr>
               ))}
