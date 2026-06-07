@@ -11,6 +11,15 @@ bump delivers a new vertical slice from the spec ([docs/ROADMAP.md](docs/ROADMAP
 
 ## [Unreleased]
 
+- **Clients roster + Client 360** (§27, §30, §56) at `/clients` — portfolio
+  list with compliance rate, start-date success, pipeline count, and industry
+  badges; click through to a full client detail page with four tabs:
+  Pipeline (active onboardings filtered to this client, linking to Candidate
+  360), Compliance Rules (per-category tags, required vs optional, conditions),
+  Contacts (primary / billing / HR / technical), and Client Info (billing
+  terms, avg onboarding days, notes). Includes the Client Promise Tracker
+  (§41.5) inline. Clients nav item now live.
+
 - **Initiate Onboarding flow** (§9, §14) — a 5-step slide-over sheet matching
   the full ApTask "New Consultant" form, surfaced in three places:
   - **Onboarding pipeline page** (`/onboarding`, nav now live) — stage bar
