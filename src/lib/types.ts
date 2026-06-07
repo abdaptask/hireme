@@ -29,11 +29,12 @@ export type RiskLevel =
   | "at-risk"
   | "unlikely";
 
-/** Personas with dedicated workspaces (§5). */
+/** Personas with dedicated workspaces (§5) plus external portal roles (§27). */
 export type PersonaId =
   | "super-admin"
   | "candidate"
   | "onboarder"
   | "recruiter"
   | "recruiting-manager"
-  | "account-manager";
+  | "account-manager"
+  | "vendor"; // external subcontractor (C2C) — scoped portal access

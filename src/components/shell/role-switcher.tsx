@@ -11,7 +11,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useEntitlements } from "@/components/providers/entitlements-provider";
-import { ADMIN_ROLE, getRole, ROLES } from "@/lib/roles";
+import { ADMIN_ROLE, getRole, isExternalRole, ROLES, type RoleId } from "@/lib/roles";
+import { getPersona } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
 /**
@@ -23,6 +24,12 @@ export function RoleSwitcher() {
   const router = useRouter();
   const { viewAs, setViewAs, isPreviewing } = useEntitlements();
   const current = getRole(viewAs);
+
+  function preview(role: RoleId) {
+    setViewAs(role);
+    // External roles live in their own scoped portal (§27) — send them there.
+    if (isExternalRole(role)) router.push(getPersona(role).home);
+  }
 
   return (
     <DropdownMenu>
@@ -63,7 +70,7 @@ export function RoleSwitcher() {
         <DropdownMenuLabel>View the app as</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {ROLES.map((r) => (
-          <DropdownMenuItem key={r.id} onClick={() => setViewAs(r.id)}>
+          <DropdownMenuItem key={r.id} onClick={() => preview(r.id)}>
             {r.isAdmin ? (
               <ShieldCheck className="size-4" />
             ) : (

@@ -13,6 +13,7 @@ import {
   ClipboardList,
   FileText,
   GraduationCap,
+  Handshake,
   History,
   Home,
   Inbox,
@@ -125,6 +126,16 @@ export const PERSONAS: Persona[] = [
     status: "planned",
     roadmap: "v0.3.0",
     description: "Client-centric view of onboarding pipelines.",
+  },
+  {
+    id: "vendor",
+    label: "Vendor",
+    workspace: "Vendor Portal",
+    home: "/vendor",
+    icon: Handshake,
+    status: "live",
+    description:
+      "External subcontractor (C2C) — scoped access to their own submitted candidates.",
   },
 ];
 

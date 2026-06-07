@@ -24,6 +24,8 @@ export type CandidateSummary = {
   email: string;
   phone: string;
   tags: string[];
+  /** Supplying vendor for C2C arrangements (§27, §30). Absent = direct/internal. */
+  vendor?: string;
 };
 
 export type ReadinessDimension = {
@@ -134,6 +136,7 @@ export const CANDIDATES: CandidateSummary[] = [
     email: "marcus.webb@example.com",
     phone: "+1 (312) 555-0199",
     tags: ["Payroll sync failed"],
+    vendor: "Apex Staffing Partners",
   },
   {
     id: "sarah-chen",
@@ -214,6 +217,7 @@ export const CANDIDATES: CandidateSummary[] = [
     email: "diego.santos@example.com",
     phone: "+1 (305) 555-0150",
     tags: ["Client approved"],
+    vendor: "Apex Staffing Partners",
   },
   {
     id: "grace-okafor",
@@ -274,6 +278,48 @@ export const CANDIDATES: CandidateSummary[] = [
     email: "fatima.idris@example.com",
     phone: "+1 (602) 555-0111",
     tags: ["Training assigned"],
+  },
+  {
+    id: "ravi-menon",
+    name: "Ravi Menon",
+    role: "Backend Engineer",
+    client: "Cobalt Systems",
+    employmentType: "C2C",
+    location: "Remote · Raleigh, NC",
+    stage: "Document Submission",
+    status: "needs-attention",
+    risk: "needs-attention",
+    startDateLabel: "Jun 21",
+    startInDays: 9,
+    recruiter: "Aaron Flores",
+    onboarder: "Riya Kim",
+    progress: 34,
+    lastActivity: "2h ago",
+    email: "ravi.menon@example.com",
+    phone: "+1 (919) 555-0102",
+    tags: ["Awaiting vendor MSA"],
+    vendor: "Apex Staffing Partners",
+  },
+  {
+    id: "sofia-marin",
+    name: "Sofia Marin",
+    role: "Data Engineer",
+    client: "Atlas Manufacturing",
+    employmentType: "C2C",
+    location: "Hybrid · Denver, CO",
+    stage: "Background Check",
+    status: "on-track",
+    risk: "on-track",
+    startDateLabel: "Jun 28",
+    startInDays: 16,
+    recruiter: "Aaron Flores",
+    onboarder: "Aaron Flores",
+    progress: 70,
+    lastActivity: "5h ago",
+    email: "sofia.marin@example.com",
+    phone: "+1 (720) 555-0119",
+    tags: [],
+    vendor: "Apex Staffing Partners",
   },
 ];
 
@@ -378,4 +424,77 @@ export function getCandidate(id: string): CandidateDetail | undefined {
 /** Map a free-text candidate name (e.g. from the event feed) to a record id. */
 export function candidateIdByName(name: string): string | undefined {
   return CANDIDATES.find((c) => c.name === name)?.id;
+}
+
+/* ---------------------------------------------------------------------------
+   Vendor portal scoping (§27).
+   Vendors are external subcontractors in C2C deals. They may only see their
+   own submitted candidates, and only permitted fields — never confidential
+   pay/markup, internal notes/tags, recruiter/onboarder identities, internal AI
+   analysis, or other vendors' people.
+   --------------------------------------------------------------------------- */
+
+/** The vendor currently signed into the demo portal. */
+export const CURRENT_VENDOR = "Apex Staffing Partners";
+
+export type VendorCandidateView = {
+  id: string;
+  name: string;
+  role: string;
+  client: string;
+  location: string;
+  employmentType: string;
+  stage: string;
+  status: PipelineStatus;
+  startDateLabel: string;
+  startInDays: number;
+  progress: number;
+  /** What the vendor must do next, if anything (no internal detail). */
+  actionNeeded: string | null;
+  /** High-level screening readiness only — never results. */
+  screeningStatus: string;
+};
+
+function vendorActionFor(c: CandidateSummary): string | null {
+  if (c.tags.includes("Awaiting vendor MSA"))
+    return "Upload signed MSA / work order";
+  switch (c.status) {
+    case "needs-attention":
+      return "Action needed — submit outstanding documents";
+    case "waiting-external":
+      return "Awaiting documents from your candidate";
+    default:
+      return null;
+  }
+}
+
+/** Project an internal candidate down to the vendor-permitted view (§27). */
+export function toVendorView(c: CandidateSummary): VendorCandidateView {
+  return {
+    id: c.id,
+    name: c.name,
+    role: c.role,
+    client: c.client,
+    location: c.location,
+    employmentType: c.employmentType,
+    stage: c.stage,
+    status: c.status,
+    startDateLabel: c.startDateLabel,
+    startInDays: c.startInDays,
+    progress: c.progress,
+    actionNeeded: vendorActionFor(c),
+    screeningStatus:
+      c.stage === "Background Check"
+        ? "In progress"
+        : c.progress > 60
+          ? "Clear"
+          : "Not started",
+  };
+}
+
+/** All candidates a vendor is entitled to see (their own, permitted view). */
+export function getVendorCandidates(
+  vendor: string = CURRENT_VENDOR,
+): VendorCandidateView[] {
+  return CANDIDATES.filter((c) => c.vendor === vendor).map(toVendorView);
 }

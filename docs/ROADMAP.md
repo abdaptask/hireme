@@ -48,6 +48,7 @@ Front half — identity & navigation entitlements — ✅ done (on `feat/v0.2-id
 | Dev role switcher + Role Preview | §121.7 | ✅ |
 | Sidebar pin/unpin + icon rail + info tooltips | §97.1 | ✅ |
 | Admin navigation-visibility matrix | §42 | ✅ |
+| Vendor role + scoped external Vendor Portal (C2C) | §27 | ✅ UI (binds to DB) |
 
 Back half — persistence — remaining:
 

@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   ChevronRight,
   FileText,
+  Handshake,
   Mail,
   MapPin,
   MoreHorizontal,
@@ -219,6 +220,20 @@ export default async function CandidateRecordPage({
               <InfoRow icon={Calendar} label="Start date" value={`${c.startDateLabel} · ${c.startInDays}d`} />
               <InfoRow icon={User} label="Recruiter" value={c.recruiter} />
               <InfoRow icon={User} label="Onboarder" value={c.onboarder} />
+              {c.vendor && (
+                <InfoRow
+                  icon={Handshake}
+                  label="Vendor"
+                  value={
+                    <span className="inline-flex items-center gap-1.5">
+                      {c.vendor}
+                      <Badge variant="secondary" className="text-[10px]">
+                        C2C
+                      </Badge>
+                    </span>
+                  }
+                />
+              )}
             </div>
             {c.tags.length > 0 && (
               <div className="bg-card rounded-xl border p-4 shadow-xs">

@@ -33,6 +33,12 @@ bump delivers a new vertical slice from the spec ([docs/ROADMAP.md](docs/ROADMAP
   Action, six-dimension Readiness Radar, three-part layout (summary · tabbed
   workspace · context panel), Overview/Timeline/Tasks/Documents tabs plus
   placeholders for later modules. Command Center feed candidates deep-link in.
+- **Vendor role + Vendor Portal** (§27) — external subcontractor role for C2C
+  deals with a dedicated, scoped portal at `/vendor`. A vendor sees only the
+  consultants their firm submitted, with permitted fields only (no pay/billing/
+  markup, internal notes, recruiter/onboarder identities, or other vendors'
+  people). "Preview as Vendor" routes into the portal; the internal Candidate
+  360 shows the supplying vendor on C2C records.
 
 > Decisions for the v0.2 persistence half: **Neon serverless Postgres** (via
 > Prisma) and **deferred real auth** (this dev role switcher stands in until a

@@ -25,7 +25,16 @@ export const ROLES: Role[] = [
   { id: "recruiting-manager", label: "Recruiting Manager", isAdmin: false },
   { id: "account-manager", label: "Account Manager", isAdmin: false },
   { id: "candidate", label: "Candidate", isAdmin: false },
+  { id: "vendor", label: "Vendor", isAdmin: false },
 ];
+
+/** External roles use a dedicated, scoped portal rather than the operational
+ *  app shell (§27). They never see internal navigation. */
+export const EXTERNAL_ROLES: RoleId[] = ["candidate", "vendor"];
+
+export function isExternalRole(id: RoleId): boolean {
+  return EXTERNAL_ROLES.includes(id);
+}
 
 export const ADMIN_ROLE: RoleId = "super-admin";
 
@@ -88,6 +97,7 @@ const DEFAULT_ALLOWED: Record<RoleId, string[] | "all"> = {
     "reports",
   ],
   candidate: [],
+  vendor: [],
 };
 
 export type VisibilityMap = Record<RoleId, Record<string, boolean>>;
