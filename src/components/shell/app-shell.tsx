@@ -10,6 +10,7 @@ import { SidebarNav } from "@/components/shell/sidebar-nav";
 import { AppHeader } from "@/components/shell/app-header";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { DEFAULT_PERSONA } from "@/lib/nav";
+import { useLocalStorage } from "@/lib/use-stored";
 import { cn } from "@/lib/utils";
 
 const SIDEBAR_STORAGE_KEY = "hireme.sidebar.collapsed";
@@ -39,25 +40,17 @@ function Brand({ collapsed = false }: { collapsed?: boolean }) {
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsedRaw, setCollapsedRaw] = useLocalStorage(
+    SIDEBAR_STORAGE_KEY,
+    "0",
+  );
+  const collapsed = collapsedRaw === "1";
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
-  useEffect(() => {
-    setCollapsed(localStorage.getItem(SIDEBAR_STORAGE_KEY) === "1");
-  }, []);
-
   const toggleCollapsed = useCallback(() => {
-    setCollapsed((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(SIDEBAR_STORAGE_KEY, next ? "1" : "0");
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
-  }, []);
+    setCollapsedRaw(collapsed ? "0" : "1");
+  }, [collapsed, setCollapsedRaw]);
 
   // Global command palette shortcut (§110).
   useEffect(() => {

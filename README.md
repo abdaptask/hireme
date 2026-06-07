@@ -1,36 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# HireMe — Intelligent Enterprise Onboarding & Workforce Lifecycle Platform
 
-## Getting Started
+An automation-first, AI-native platform for enterprise workforce onboarding and
+the full consultant lifecycle. The complete product specification is the source
+of truth in **[CLAUDE.md](CLAUDE.md)**; sequencing lives in
+**[docs/ROADMAP.md](docs/ROADMAP.md)**.
 
-First, run the development server:
+> **Status: v0.1.0 — Foundation slice.** Design system, application shell, and
+> two flagship workspaces (Super Admin Command Center + Candidate Portal) on
+> realistic mock data. No backend yet — persistence arrives in v0.2.
+
+## What's in v0.1.0
+
+- **Design system** — exact light/dark palette, six-color status language,
+  typography scale, three density modes, WCAG-minded focus & motion (§3, §120).
+- **Application shell** — collapsible role-aware sidebar (all 21 nav sections),
+  sticky header, breadcrumbs, workspace switcher, ⌘K command palette (§4, §97, §110).
+- **Super Admin Command Center** — operational vitals, risk & throughput
+  widgets, package/exception tiles, culture & engagement, and a dense
+  line-item event feed grid with search/sort/select/bulk actions (§7, §98, §99).
+- **Candidate Portal** — mobile-first guided experience: progress ring, Next
+  Best Action, task flow with rejection guidance, stage timeline, Day 1
+  readiness (§5.2, §101).
+
+See **[CHANGELOG.md](CHANGELOG.md)** for the full list.
+
+## Tech stack
+
+- [Next.js 16](https://nextjs.org) (App Router) · React 19 · TypeScript
+- Tailwind CSS v4 (CSS-first tokens) · [shadcn/ui](https://ui.shadcn.com)
+- Deterministic mock data (replaced by Postgres + Prisma in v0.2)
+
+## Getting started
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev      # http://localhost:3000  → redirects to /command-center
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Routes: `/command-center` (Super Admin), `/portal` (Candidate).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Script | Purpose |
+| --- | --- |
+| `npm run dev` | Start the dev server |
+| `npm run build` | Production build |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | TypeScript, no emit |
 
-## Learn More
+## Conventions
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Versioning** — Semantic Versioning + Conventional Commits. One vertical
+  slice per minor version (see the roadmap). A passing `lint`, `typecheck`, and
+  `build` plus an updated `CHANGELOG.md` are required before each tag.
+- **Spec references** — code comments cite spec sections (e.g. `§99`) so any
+  piece of UI can be traced back to the requirement it satisfies.

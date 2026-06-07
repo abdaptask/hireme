@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo } from "react";
 import {
   DEFAULT_DENSITY,
   DEFAULT_THEME,
@@ -17,6 +10,7 @@ import {
   type ResolvedTheme,
   type ThemeChoice,
 } from "@/lib/preferences";
+import { useLocalStorage, usePrefersDark } from "@/lib/use-stored";
 
 type PreferencesContextValue = {
   theme: ThemeChoice;
@@ -29,86 +23,53 @@ type PreferencesContextValue = {
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null);
 
-function systemTheme(): ResolvedTheme {
-  if (typeof window === "undefined") return "light";
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
-}
-
 export function PreferencesProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // The bootstrap script already applied the right values to <html>; we mirror
-  // them into React state on mount to keep the UI in sync.
-  const [theme, setThemeState] = useState<ThemeChoice>(DEFAULT_THEME);
-  const [density, setDensityState] = useState<Density>(DEFAULT_DENSITY);
-  const [systemResolved, setSystemResolved] =
-    useState<ResolvedTheme>("light");
-
-  useEffect(() => {
-    const storedTheme =
-      (localStorage.getItem(THEME_STORAGE_KEY) as ThemeChoice | null) ??
-      DEFAULT_THEME;
-    const storedDensity =
-      (localStorage.getItem(DENSITY_STORAGE_KEY) as Density | null) ??
-      DEFAULT_DENSITY;
-    setThemeState(storedTheme);
-    setDensityState(storedDensity);
-    setSystemResolved(systemTheme());
-
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = () => setSystemResolved(mq.matches ? "dark" : "light");
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
+  const [theme, setThemeRaw] = useLocalStorage(THEME_STORAGE_KEY, DEFAULT_THEME);
+  const [density, setDensityRaw] = useLocalStorage(
+    DENSITY_STORAGE_KEY,
+    DEFAULT_DENSITY,
+  );
+  const prefersDark = usePrefersDark();
 
   const resolvedTheme: ResolvedTheme =
-    theme === "system" ? systemResolved : theme;
+    theme === "system" ? (prefersDark ? "dark" : "light") : (theme as ResolvedTheme);
 
-  // Apply theme to <html> whenever it changes.
+  // Apply resolved theme to <html> (updates an external system — allowed).
   useEffect(() => {
     const el = document.documentElement;
     el.classList.toggle("dark", resolvedTheme === "dark");
     el.style.colorScheme = resolvedTheme;
   }, [resolvedTheme]);
 
-  // Apply density to <html> whenever it changes.
+  // Apply density to <html>.
   useEffect(() => {
     document.documentElement.setAttribute("data-density", density);
   }, [density]);
 
-  const setTheme = useCallback((next: ThemeChoice) => {
-    setThemeState(next);
-    try {
-      localStorage.setItem(THEME_STORAGE_KEY, next);
-    } catch {
-      /* storage may be unavailable; in-memory state still updates */
-    }
-  }, []);
-
-  const setDensity = useCallback((next: Density) => {
-    setDensityState(next);
-    try {
-      localStorage.setItem(DENSITY_STORAGE_KEY, next);
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  const toggleTheme = useCallback(() => {
-    setTheme(resolvedTheme === "dark" ? "light" : "dark");
-  }, [resolvedTheme, setTheme]);
+  const setTheme = useCallback(
+    (next: ThemeChoice) => setThemeRaw(next),
+    [setThemeRaw],
+  );
+  const setDensity = useCallback(
+    (next: Density) => setDensityRaw(next),
+    [setDensityRaw],
+  );
+  const toggleTheme = useCallback(
+    () => setThemeRaw(resolvedTheme === "dark" ? "light" : "dark"),
+    [resolvedTheme, setThemeRaw],
+  );
 
   const value = useMemo<PreferencesContextValue>(
     () => ({
-      theme,
+      theme: theme as ThemeChoice,
       resolvedTheme,
       setTheme,
       toggleTheme,
-      density,
+      density: density as Density,
       setDensity,
     }),
     [theme, resolvedTheme, setTheme, toggleTheme, density, setDensity],
