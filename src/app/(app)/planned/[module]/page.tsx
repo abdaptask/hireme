@@ -60,6 +60,7 @@ export default async function PlannedPage({
         <Button
           variant="ghost"
           size="sm"
+          nativeButton={false}
           render={<Link href="/command-center" />}
         >
           <ArrowLeft className="size-4" /> Command Center
@@ -87,10 +88,10 @@ export default async function PlannedPage({
             sequencing.
           </p>
           <div className="mt-6 flex justify-center gap-2">
-            <Button variant="outline" render={<Link href="/command-center" />}>
+            <Button variant="outline" nativeButton={false} render={<Link href="/command-center" />}>
               Back to Command Center
             </Button>
-            <Button variant="ghost" render={<Link href="/portal" />}>
+            <Button variant="ghost" nativeButton={false} render={<Link href="/portal" />}>
               View Candidate Portal
             </Button>
           </div>

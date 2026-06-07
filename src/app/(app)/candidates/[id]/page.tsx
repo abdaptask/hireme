@@ -143,6 +143,7 @@ export default async function CandidateRecordPage({
             variant="ghost"
             size="sm"
             className="mb-2 -ml-2"
+            nativeButton={false}
             render={<Link href="/candidates" />}
           >
             <ArrowLeft className="size-4" /> Candidates

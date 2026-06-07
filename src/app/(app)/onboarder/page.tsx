@@ -186,7 +186,7 @@ export default function OnboarderWorkspacePage() {
                     </td>
                     <td className="px-2 py-2">
                       <div className="flex justify-end gap-1">
-                        <Button size="xs" variant="ghost" render={<Link href={`/candidates/${c.id}`} />}>
+                        <Button size="xs" variant="ghost" nativeButton={false} render={<Link href={`/candidates/${c.id}`} />}>
                           Open
                         </Button>
                         <Button size="xs" variant="ghost">Remind</Button>

@@ -37,7 +37,7 @@ function WorkRow({ item }: { item: WorkItem }) {
       </div>
       <div className="flex items-center gap-1.5">
         <Button size="xs" variant="outline">{item.action}</Button>
-        <Button size="xs" variant="ghost" render={<Link href={`/candidates/${item.candidate.id}`} />}>
+        <Button size="xs" variant="ghost" nativeButton={false} render={<Link href={`/candidates/${item.candidate.id}`} />}>
           Open
         </Button>
       </div>
