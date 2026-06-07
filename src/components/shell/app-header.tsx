@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -26,9 +25,9 @@ import {
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { DensityMenu } from "@/components/shell/density-menu";
 import { WorkspaceSwitcher } from "@/components/shell/workspace-switcher";
-import { AiCopilotPanel } from "@/components/shell/ai-copilot-panel";
 import { useShell } from "@/components/shell/shell-context";
 import { useEntitlements } from "@/components/providers/entitlements-provider";
+import { useAiCopilot } from "@/components/ai/ai-provider";
 import { getNavItem, type Persona } from "@/lib/nav";
 
 const QUICK_CREATE = [
@@ -65,7 +64,7 @@ function useBreadcrumb(persona: Persona) {
 export function AppHeader({ persona }: { persona: Persona }) {
   const { pinned, togglePinned, setMobileNavOpen, setPaletteOpen } = useShell();
   const { isVisible } = useEntitlements();
-  const [aiOpen, setAiOpen] = useState(false);
+  const { openCopilot } = useAiCopilot();
   const router = useRouter();
   const crumbs = useBreadcrumb(persona);
   const quickCreate = QUICK_CREATE.filter((q) => isVisible(q.navId));
@@ -213,7 +212,7 @@ export function AppHeader({ persona }: { persona: Persona }) {
           variant="ghost"
           size="icon"
           aria-label="AI Copilot"
-          onClick={() => setAiOpen(true)}
+          onClick={() => openCopilot()}
         >
           <Sparkles className="text-ai size-4.5" />
         </Button>
@@ -285,7 +284,6 @@ export function AppHeader({ persona }: { persona: Persona }) {
         </DropdownMenu>
       </div>
 
-      <AiCopilotPanel open={aiOpen} onOpenChange={setAiOpen} />
     </header>
   );
 }
