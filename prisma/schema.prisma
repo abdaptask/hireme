@@ -1,0 +1,768 @@
+// HireMe — Enterprise Workforce Onboarding Platform
+// Source of truth: CLAUDE.md §43 (Core Data Entities)
+// All entities map 1-to-1 with TypeScript mock types in src/lib/*.ts
+
+// Prisma 7: URL is handled via prisma.config.ts (migrate) and
+// PrismaClient({ datasourceUrl }) at runtime — not in the schema.
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────
+
+enum CandidateStatus {
+  NEW
+  ACTIVE
+  OFFER_ACCEPTED
+  ONBOARDING
+  ON_HOLD
+  WITHDRAWN
+  PLACED
+  ARCHIVED
+}
+
+enum RiskLevel {
+  ON_TRACK
+  NEEDS_ATTENTION
+  AT_RISK
+  UNLIKELY
+}
+
+enum EmploymentType {
+  W2
+  C2C
+  INDEPENDENT_1099
+  FULL_TIME
+  CONTRACT_TO_HIRE
+  INTERN
+}
+
+enum ConsultantStatus {
+  ACTIVE
+  BENCH
+  EXTENSION_PENDING
+  OFFBOARDING
+  CONVERTED
+  FORMER
+  INELIGIBLE
+}
+
+enum ClientStatus {
+  ACTIVE
+  AT_RISK
+  ON_HOLD
+}
+
+enum PackageStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  PUBLISHED
+  RETIRED
+  SUPERSEDED
+}
+
+enum PackageItemStatus {
+  INCLUDED
+  WAIVED
+  PENDING
+  REJECTED
+}
+
+enum DocumentStatus {
+  PENDING
+  SUBMITTED
+  AI_REVIEW
+  APPROVED
+  REJECTED
+  EXPIRED
+  CORRECTION_REQUIRED
+}
+
+enum ScreeningStatus {
+  ORDERED
+  INVITED
+  CONSENTED
+  IN_PROGRESS
+  INFO_REQUIRED
+  VENDOR_DELAYED
+  CLEAR
+  REVIEW_REQUIRED
+  ADVERSE_PENDING
+}
+
+enum EquipmentStatus {
+  REQUESTED
+  APPROVED
+  ASSIGNED
+  SHIPPED
+  DELIVERED
+  ENROLLED
+  READY
+  DELAYED
+  RETURN_REQUIRED
+  RETURNED
+  LOST
+  DAMAGED
+}
+
+enum ReadinessStatus {
+  READY
+  NOT_READY
+  PENDING
+}
+
+enum TrainingStatus {
+  ASSIGNED
+  STARTED
+  COMPLETED
+  FAILED
+  EXPIRING
+  WAIVED
+  OVERDUE
+}
+
+enum CommunicationChannel {
+  EMAIL
+  SMS
+  PORTAL
+  VOICE
+  INTERNAL
+}
+
+enum AuditAction {
+  CREATED
+  UPDATED
+  APPROVED
+  REJECTED
+  ESCALATED
+  OVERRIDDEN
+  EXPORTED
+  AI_ACTION
+  INTEGRATION_EVENT
+  DELETED
+}
+
+enum IntegrationStatus {
+  CONNECTED
+  DEGRADED
+  ERROR
+  DISCONNECTED
+  SCHEDULED
+}
+
+enum IntegrationCategory {
+  ATS
+  VMS
+  HRIS
+  PAYROLL
+  SCREENING
+  ESIGN
+  COMMUNICATION
+  IDENTITY
+  ASSET
+  LMS
+  SHIPPING
+  ACCOUNTING
+  CRM
+  ANALYTICS
+  BENEFITS
+}
+
+enum ExceptionSeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum ExceptionStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  REOPENED
+}
+
+// ─────────────────────────────────────────────────────────
+// CORE PEOPLE
+// ─────────────────────────────────────────────────────────
+
+model Candidate {
+  id             String          @id @default(cuid())
+  firstName      String
+  lastName       String
+  email          String          @unique
+  phone          String?
+  status         CandidateStatus @default(NEW)
+  risk           RiskLevel       @default(ON_TRACK)
+  progress       Int             @default(0)
+  stage          String?
+  employmentType EmploymentType?
+  workLocation   String?
+  startDate      DateTime?
+  clientName     String?
+  recruiter      String?
+  onboarder      String?
+  vendor         String?
+  tags           String[]
+  notes          String?
+  lastContact    DateTime?
+
+  // Address
+  street String?
+  city   String?
+  state  String?
+  zip    String?
+
+  // Skills / AI enrichment
+  skillFamily     String?
+  skills          String[]
+  skillConfidence Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  assignments    Assignment[]
+  documents      Document[]
+  screenings     Screening[]
+  equipment      Equipment[]
+  communications Communication[]
+  training       Training[]
+  auditEvents    AuditEvent[]
+  exceptions     Exception[]
+  payroll        PayrollReadiness?
+  billing        BillingReadiness?
+}
+
+model Consultant {
+  id             String           @id @default(cuid())
+  firstName      String
+  lastName       String
+  email          String           @unique
+  phone          String?
+  status         ConsultantStatus @default(ACTIVE)
+  title          String?
+  clientName     String?
+  recruiter      String?
+  onboarder      String?
+  accountManager String?
+  vendor         String?
+  employmentType EmploymentType?
+  billRate       Float?
+  payRate        Float?
+  startDate      DateTime?
+  endDate        DateTime?
+  location       String?
+  skills         String[]
+  notes          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignments Assignment[]
+  auditEvents AuditEvent[]
+}
+
+// ─────────────────────────────────────────────────────────
+// CLIENTS & ASSIGNMENTS
+// ─────────────────────────────────────────────────────────
+
+model Client {
+  id                    String       @id @default(cuid())
+  name                  String       @unique
+  industry              String
+  hq                    String
+  accountManager        String
+  programs              String[]
+  msp                   String?
+  employmentTypesAllowed String[]
+  status                ClientStatus @default(ACTIVE)
+  website               String?
+  invoiceFrequency      String?
+  paymentTermsDays      Int          @default(30)
+  vmsPlatform           String?
+  workerIdPrefix        String?
+  activeConsultants     Int          @default(0)
+  avgOnboardingDays     Int          @default(14)
+  compliancePassRate    Float        @default(90)
+  startDateSuccessRate  Float        @default(90)
+  since                 String?
+  notes                 String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contacts    ClientContact[]
+  rules       ComplianceRule[]
+  promises    ClientPromise[]
+  assignments Assignment[]
+  packages    Package[]
+  auditEvents AuditEvent[]
+}
+
+model ClientContact {
+  id       String  @id @default(cuid())
+  clientId String
+  name     String
+  title    String
+  email    String
+  phone    String?
+  type     String  // "primary" | "billing" | "hr" | "technical"
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model ClientPromise {
+  id           String   @id @default(cuid())
+  clientId     String
+  label        String
+  promisedDate String
+  actualDate   String?
+  status       String   @default("on-track")
+  createdAt    DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model ComplianceRule {
+  id        String  @id @default(cuid())
+  clientId  String?
+  label     String
+  category  String
+  required  Boolean @default(true)
+  condition String?
+  policyId  String?
+
+  client Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+}
+
+model Assignment {
+  id             String         @id @default(cuid())
+  candidateId    String?
+  consultantId   String?
+  clientId       String?
+  jobTitle       String?
+  jobId          String?
+  jobCategory    String?
+  employmentType EmploymentType?
+  startDate      DateTime?
+  endDate        DateTime?
+  billRate       Float?
+  payRate        Float?
+  currency       String         @default("USD")
+  workLocation   String?
+  workState      String?
+  status         String         @default("active")
+  vendorId       String?
+  msp            String?
+  program        String?
+  remarks        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  candidate  Candidate?  @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+  consultant Consultant? @relation(fields: [consultantId], references: [id], onDelete: SetNull)
+  client     Client?     @relation(fields: [clientId], references: [id], onDelete: SetNull)
+}
+
+// ─────────────────────────────────────────────────────────
+// PACKAGES
+// ─────────────────────────────────────────────────────────
+
+model Package {
+  id             String        @id @default(cuid())
+  name           String
+  version        String        @default("1.0")
+  status         PackageStatus @default(DRAFT)
+  clientId       String?
+  employmentType String?
+  workLocation   String?
+  jobCategory    String?
+  effectiveDate  DateTime?
+  expirationDate DateTime?
+  owner          String?
+  approver       String?
+  riskScore      Int           @default(0)
+  completionPct  Int           @default(0)
+  aiReviewStatus String        @default("not-run")
+  consultant     String?
+  notes          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client     Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  items      PackageItem[]
+  rules      PackageRule[]
+  approvals  PackageApproval[]
+  dispatches PackageDispatch[]
+  auditEvents AuditEvent[]
+}
+
+model PackageItem {
+  id            String            @id @default(cuid())
+  packageId     String
+  section       String
+  type          String
+  label         String
+  required      Boolean           @default(true)
+  conditional   String?
+  owner         String?
+  dueOffset     Int               @default(0)
+  status        PackageItemStatus @default(INCLUDED)
+  aiRecommended Boolean           @default(false)
+  notes         String?
+
+  createdAt DateTime @default(now())
+
+  package Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
+}
+
+model PackageRule {
+  id        String  @id @default(cuid())
+  packageId String
+  condition String
+  applies   Boolean @default(true)
+  reason    String
+  category  String
+
+  package Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
+}
+
+model PackageApproval {
+  id         String    @id @default(cuid())
+  packageId  String
+  approver   String
+  role       String
+  status     String    @default("pending")
+  approvedAt DateTime?
+  notes      String?
+
+  package Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
+}
+
+model PackageDispatch {
+  id        String   @id @default(cuid())
+  packageId String
+  channel   String
+  sentAt    DateTime @default(now())
+  status    String   @default("delivered")
+
+  package Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────────────────
+// DOCUMENTS
+// ─────────────────────────────────────────────────────────
+
+model Document {
+  id             String         @id @default(cuid())
+  candidateId    String?
+  name           String
+  category       String
+  status         DocumentStatus @default(PENDING)
+  fileUrl        String?
+  fileSize       Int?
+  mimeType       String?
+  aiScore        Int?
+  aiFlags        String[]
+  rejectedReason String?
+  expiresAt      DateTime?
+  reviewedBy     String?
+  reviewedAt     DateTime?
+  uploadedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  candidate   Candidate?  @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+  auditEvents AuditEvent[]
+}
+
+// ─────────────────────────────────────────────────────────
+// SCREENING
+// ─────────────────────────────────────────────────────────
+
+model Screening {
+  id                  String          @id @default(cuid())
+  candidateId         String?
+  vendor              String
+  packageType         String?
+  status              ScreeningStatus @default(ORDERED)
+  orderedAt           DateTime?
+  consentedAt         DateTime?
+  completedAt         DateTime?
+  estimatedCompletion DateTime?
+  cost                Float?
+  adjudicator         String?
+  notes               String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  candidate Candidate? @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+}
+
+// ─────────────────────────────────────────────────────────
+// EQUIPMENT & IT
+// ─────────────────────────────────────────────────────────
+
+model Equipment {
+  id                String          @id @default(cuid())
+  candidateId       String?
+  assetType         String
+  label             String
+  status            EquipmentStatus @default(REQUESTED)
+  serialNumber      String?
+  trackingNumber    String?
+  carrier           String?
+  shippedAt         DateTime?
+  estimatedDelivery DateTime?
+  deliveredAt       DateTime?
+  returnRequired    Boolean         @default(false)
+  returnedAt        DateTime?
+
+  // IT access flags
+  emailProvisioned  Boolean @default(false)
+  vpnProvisioned    Boolean @default(false)
+  clientCredentials Boolean @default(false)
+  deviceEnrolled    Boolean @default(false)
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  candidate Candidate? @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+}
+
+// ─────────────────────────────────────────────────────────
+// READINESS GATES  (§16)
+// ─────────────────────────────────────────────────────────
+
+model PayrollReadiness {
+  id          String          @id @default(cuid())
+  candidateId String          @unique
+  status      ReadinessStatus @default(NOT_READY)
+
+  // §16.2 — eleven checks
+  classification  Boolean @default(false)
+  payRate         Boolean @default(false)
+  overtimeRules   Boolean @default(false)
+  taxJurisdiction Boolean @default(false)
+  directDeposit   Boolean @default(false)
+  w4              Boolean @default(false)
+  stateTax        Boolean @default(false)
+  i9              Boolean @default(false)
+  benefitsEligibility Boolean @default(false)
+  payrollEntity   Boolean @default(false)
+  startDateSet    Boolean @default(false)
+
+  updatedAt DateTime @updatedAt
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+}
+
+model BillingReadiness {
+  id          String          @id @default(cuid())
+  candidateId String          @unique
+  status      ReadinessStatus @default(NOT_READY)
+
+  // §16.3 — eleven checks
+  billRate          Boolean @default(false)
+  markup            Boolean @default(false)
+  purchaseOrder     Boolean @default(false)
+  costCenter        Boolean @default(false)
+  clientWorkerId    Boolean @default(false)
+  vmsId             Boolean @default(false)
+  invoiceFrequency  Boolean @default(false)
+  timesheetMethod   Boolean @default(false)
+  expensePolicy     Boolean @default(false)
+  billingEntity     Boolean @default(false)
+  approvedStartDate Boolean @default(false)
+
+  poNumber       String?
+  clientWorkerId2 String?
+  vmsWorkerId    String?
+
+  updatedAt DateTime @updatedAt
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────────────────
+// TRAINING  (§37)
+// ─────────────────────────────────────────────────────────
+
+model Training {
+  id          String         @id @default(cuid())
+  candidateId String?
+  title       String
+  category    String
+  status      TrainingStatus @default(ASSIGNED)
+  score       Int?
+  dueDate     DateTime?
+  completedAt DateTime?
+  required    Boolean        @default(true)
+  waivedBy    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  candidate Candidate? @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+}
+
+// ─────────────────────────────────────────────────────────
+// COMMUNICATIONS  (§24)
+// ─────────────────────────────────────────────────────────
+
+model Communication {
+  id          String               @id @default(cuid())
+  candidateId String?
+  channel     CommunicationChannel
+  direction   String               @default("outbound")
+  subject     String?
+  body        String?
+  status      String               @default("sent")
+  nudgeLevel  Int?
+  sentAt      DateTime?
+  openedAt    DateTime?
+  respondedAt DateTime?
+  sentBy      String?
+
+  createdAt DateTime @default(now())
+
+  candidate Candidate? @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+}
+
+// ─────────────────────────────────────────────────────────
+// EXCEPTIONS  (§18)
+// ─────────────────────────────────────────────────────────
+
+model Exception {
+  id                 String            @id @default(cuid())
+  candidateId        String?
+  category           String
+  severity           ExceptionSeverity @default(MEDIUM)
+  status             ExceptionStatus   @default(OPEN)
+  title              String
+  description        String?
+  owner              String?
+  resolver           String?
+  resolutionDeadline DateTime?
+  resolvedAt         DateTime?
+  startDateImpact    Boolean           @default(false)
+  clientVisible      Boolean           @default(false)
+  clientNote         String?
+  internalNote       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  candidate   Candidate?   @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+  auditEvents AuditEvent[]
+}
+
+// ─────────────────────────────────────────────────────────
+// INTEGRATIONS  (§29, §74–§95)
+// ─────────────────────────────────────────────────────────
+
+model Integration {
+  id                String              @id @default(cuid())
+  name              String
+  vendor            String
+  category          IntegrationCategory
+  description       String?
+  status            IntegrationStatus   @default(DISCONNECTED)
+  lastSync          DateTime?
+  lastSuccess       DateTime?
+  failedRecords     Int                 @default(0)
+  successRate       Float               @default(0)
+  avgLatencyMs      Int                 @default(0)
+  queueDepth        Int                 @default(0)
+  authExpires       DateTime?
+  authType          String?
+  owner             String?
+  criticality       String              @default("medium")
+  syncDirection     String              @default("bidirectional")
+  syncFrequency     String              @default("hourly")
+  environment       String              @default("production")
+  dataExchanged     String[]
+  totalRecordsToday Int                 @default(0)
+  totalErrorsToday  Int                 @default(0)
+  uptime30d         Float               @default(100)
+  website           String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events      IntegrationEvent[]
+  auditEvents AuditEvent[]
+}
+
+model IntegrationEvent {
+  id            String   @id @default(cuid())
+  integrationId String
+  timestamp     DateTime @default(now())
+  direction     String
+  eventType     String
+  recordCount   Int      @default(0)
+  status        String   @default("success")
+  latencyMs     Int      @default(0)
+  errorCode     String?
+  errorMessage  String?
+  retryCount    Int      @default(0)
+  correlationId String?
+
+  integration Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────────────────
+// AUDIT  (§26)
+// ─────────────────────────────────────────────────────────
+
+model AuditEvent {
+  id            String      @id @default(cuid())
+  action        AuditAction
+  entityType    String
+  entityId      String?
+  entityLabel   String?
+  actor         String
+  actorRole     String?
+  previousValue String?
+  newValue      String?
+  reason        String?
+  ipAddress     String?
+  device        String?
+  aiInvolved    Boolean     @default(false)
+  sourceSystem  String?
+  critical      Boolean     @default(false)
+  timestamp     DateTime    @default(now())
+
+  // Optional FK links — all nullable so any event type is supported
+  candidateId   String?
+  consultantId  String?
+  packageId     String?
+  documentId    String?
+  exceptionId   String?
+  integrationId String?
+  clientId      String?
+
+  candidate   Candidate?   @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+  consultant  Consultant?  @relation(fields: [consultantId], references: [id], onDelete: SetNull)
+  package     Package?     @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  document    Document?    @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  exception   Exception?   @relation(fields: [exceptionId], references: [id], onDelete: SetNull)
+  integration Integration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
+  client      Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+}
