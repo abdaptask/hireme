@@ -167,10 +167,11 @@ export default function IntegrationsPage() {
             <article
               key={integration.id}
               className={cn(
-                "bg-card flex flex-col rounded-xl border shadow-xs transition-shadow hover:shadow-sm",
+                "bg-card flex flex-col rounded-xl border shadow-xs transition-shadow hover:shadow-sm group cursor-pointer",
                 integration.status === "error" && "border-danger/30",
                 integration.status === "disconnected" && "opacity-75",
               )}
+              onClick={() => { window.location.href = `/integrations/${integration.id}`; }}
             >
               {/* Card header */}
               <div className="flex items-start justify-between gap-2 border-b px-4 py-3">
@@ -292,6 +293,7 @@ export default function IntegrationsPage() {
               <div className="flex items-center gap-2 border-t px-4 py-2.5">
                 <button
                   disabled={isHealthy}
+                  onClick={(e) => e.stopPropagation()}
                   className={cn(
                     "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
                     isHealthy
@@ -304,10 +306,11 @@ export default function IntegrationsPage() {
                 </button>
                 <Link
                   href={`/integrations/${integration.id}`}
+                  onClick={(e) => e.stopPropagation()}
                   className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-muted"
                 >
                   <Plug className="size-3.5" />
-                  View Details
+                  Configure
                 </Link>
                 <span className="text-metadata ml-auto">{integration.owner}</span>
               </div>
