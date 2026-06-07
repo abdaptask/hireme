@@ -247,10 +247,9 @@ export const NAV_SECTIONS: NavSection[] = [
       {
         id: "clients",
         label: "Clients",
-        href: "/planned/clients",
+        href: "/clients",
         icon: Building2,
-        status: "planned",
-        roadmap: "v0.2.0",
+        status: "live",
         spec: "§30",
         description: "Clients, MSPs, vendors, programs and rules.",
       },
