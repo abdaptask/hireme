@@ -35,15 +35,29 @@ Design system, app shell, and two flagship workspaces on mock data.
 
 ---
 
-## v0.2.0 — Persistence & identity (Planned)
+## v0.2.0 — Persistence & identity (In progress)
 
-| Area | Spec |
-| --- | --- |
-| Postgres (Neon) + Prisma schema for core entities | §43, §44 |
-| Auth (SSO/OIDC-ready), roles & permissions (RBAC/ABAC) | §42 |
-| Candidate/Consultant 360 data model + record page | §15, §100 |
-| Audit event capture | §26 |
-| Seed data replacing mocks | — |
+**Decisions:** persistence = **Neon serverless Postgres** via Prisma; real auth
+is **deferred** in favour of a dev role switcher until a provider is wired.
+
+Front half — identity & navigation entitlements — ✅ done (on `feat/v0.2-identity-nav`):
+
+| Area | Spec | Status |
+| --- | --- | --- |
+| Roles & per-role navigation entitlements (RBAC) | §42 | ✅ |
+| Dev role switcher + Role Preview | §121.7 | ✅ |
+| Sidebar pin/unpin + icon rail + info tooltips | §97.1 | ✅ |
+| Admin navigation-visibility matrix | §42 | ✅ |
+
+Back half — persistence — remaining:
+
+| Area | Spec | Status |
+| --- | --- | --- |
+| Neon Postgres + Prisma schema for core entities | §43, §44 | ☐ (needs DATABASE_URL) |
+| Candidate/Consultant 360 data model + record page | §15, §100 | ☐ |
+| Audit event capture | §26 | ☐ |
+| Entitlements + preferences persisted to DB | §42 | ☐ |
+| Seed data replacing mocks | — | ☐ |
 
 ## v0.3.0 — Onboarding operations (Planned)
 

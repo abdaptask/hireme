@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/command";
 import { NAV_SECTIONS, PERSONAS } from "@/lib/nav";
 import { usePreferences } from "@/components/providers/preferences-provider";
+import { useEntitlements } from "@/components/providers/entitlements-provider";
 import type { Density, ThemeChoice } from "@/lib/preferences";
 
 const DENSITY_OPTIONS: { value: Density; label: string; icon: typeof Rows2 }[] =
@@ -46,6 +47,12 @@ export function CommandPalette({
 }) {
   const router = useRouter();
   const { setTheme, setDensity } = usePreferences();
+  const { isVisible } = useEntitlements();
+
+  const sections = NAV_SECTIONS.map((section) => ({
+    ...section,
+    items: section.items.filter((item) => isVisible(item.id)),
+  })).filter((section) => section.items.length > 0);
 
   function run(action: () => void) {
     onOpenChange(false);
@@ -87,7 +94,7 @@ export function CommandPalette({
 
         <CommandSeparator />
 
-        {NAV_SECTIONS.map((section) => (
+        {sections.map((section) => (
           <CommandGroup key={section.id} heading={section.label}>
             {section.items.map((item) => (
               <CommandItem

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { PreferencesProvider } from "@/components/providers/preferences-provider";
+import { EntitlementsProvider } from "@/components/providers/entitlements-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { preferencesBootstrapScript } from "@/lib/preferences";
 
@@ -43,7 +44,9 @@ export default function RootLayout({
       </head>
       <body className="min-h-full">
         <PreferencesProvider>
-          <TooltipProvider delay={200}>{children}</TooltipProvider>
+          <EntitlementsProvider>
+            <TooltipProvider delay={200}>{children}</TooltipProvider>
+          </EntitlementsProvider>
         </PreferencesProvider>
       </body>
     </html>

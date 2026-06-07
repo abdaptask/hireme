@@ -378,12 +378,12 @@ export const NAV_SECTIONS: NavSection[] = [
       {
         id: "administration",
         label: "Administration",
-        href: "/planned/administration",
+        href: "/administration",
         icon: Settings,
-        status: "planned",
-        roadmap: "v0.2.0",
+        status: "live",
         spec: "§42",
-        description: "Users, roles, permissions and security.",
+        description:
+          "Users, roles, permissions and security — including navigation visibility per role.",
       },
     ],
   },

@@ -11,6 +11,27 @@ bump delivers a new vertical slice from the spec ([docs/ROADMAP.md](docs/ROADMAP
 
 ## [Unreleased]
 
+### v0.2.0 (in progress) — Identity & navigation entitlements
+
+- **Roles & entitlements model** (§42) — six roles (the personas) with default
+  per-role navigation visibility; Super Admin has full access.
+- **Dev role switcher + Role Preview** (§121.7) — render the app as any role to
+  see exactly what it's entitled to, with an "Exit preview" banner.
+- **Sidebar pin/unpin** (§97.1) — unpinned collapses to an icon rail that
+  expands to a labeled flyout on hover; pinned stays open. State persisted.
+- **Per-item info tooltips** — each nav item shows an ⓘ describing what it
+  contains, plus its spec section and roadmap version.
+- **Entitlement-driven navigation** — sidebar, command palette, and quick-create
+  all filter to the current role's visible items; empty sections are hidden.
+- **Administration → Navigation Visibility** (§42) — admin matrix (role × nav
+  item) to show/hide items per role, with bulk show/hide, reset, and
+  per-role preview. Persisted client-side now; becomes account-backed when auth
+  and persistence land (Neon Postgres + Prisma).
+
+> Decisions for the v0.2 persistence half: **Neon serverless Postgres** (via
+> Prisma) and **deferred real auth** (this dev role switcher stands in until a
+> provider is wired).
+
 ## [0.1.0] — Foundation slice
 
 First versioned increment. Establishes the design system and application shell,
