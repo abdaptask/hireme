@@ -347,10 +347,9 @@ export const NAV_SECTIONS: NavSection[] = [
       {
         id: "reports",
         label: "Reports",
-        href: "/planned/reports",
+        href: "/reports",
         icon: BarChart3,
-        status: "planned",
-        roadmap: "v0.7.0",
+        status: "live",
         spec: "§49",
         description: "Comprehensive enterprise reporting catalog.",
       },
