@@ -53,8 +53,9 @@ Back half — persistence — remaining:
 
 | Area | Spec | Status |
 | --- | --- | --- |
+| Candidate 360 record page + Candidates list (mock) | §15, §100 | ✅ UI (binds to DB) |
 | Neon Postgres + Prisma schema for core entities | §43, §44 | ☐ (needs DATABASE_URL) |
-| Candidate/Consultant 360 data model + record page | §15, §100 | ☐ |
+| Consultant 360 + 360 data model bound to DB | §15, §100 | ☐ |
 | Audit event capture | §26 | ☐ |
 | Entitlements + preferences persisted to DB | §42 | ☐ |
 | Seed data replacing mocks | — | ☐ |

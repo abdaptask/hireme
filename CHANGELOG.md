@@ -27,6 +27,12 @@ bump delivers a new vertical slice from the spec ([docs/ROADMAP.md](docs/ROADMAP
   item) to show/hide items per role, with bulk show/hide, reset, and
   per-role preview. Persisted client-side now; becomes account-backed when auth
   and persistence land (Neon Postgres + Prisma).
+- **Candidates list** (§15) — dense, searchable roster with status, risk,
+  progress, owner; click-through to the 360. Nav item now live.
+- **Candidate 360 record** (§100, §41.1, §41.2) — context header, Next Best
+  Action, six-dimension Readiness Radar, three-part layout (summary · tabbed
+  workspace · context panel), Overview/Timeline/Tasks/Documents tabs plus
+  placeholders for later modules. Command Center feed candidates deep-link in.
 
 > Decisions for the v0.2 persistence half: **Neon serverless Postgres** (via
 > Prisma) and **deferred real auth** (this dev role switcher stands in until a

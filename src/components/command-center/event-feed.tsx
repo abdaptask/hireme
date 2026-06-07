@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import {
   ArrowDown,
   ArrowUp,
@@ -10,6 +11,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import { candidateIdByName } from "@/lib/candidates";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -263,7 +265,16 @@ export function EventFeed() {
                     </span>
                   </td>
                   <td className="px-2 font-medium whitespace-nowrap">
-                    {e.candidate}
+                    {candidateIdByName(e.candidate) ? (
+                      <Link
+                        href={`/candidates/${candidateIdByName(e.candidate)}`}
+                        className="hover:text-primary hover:underline"
+                      >
+                        {e.candidate}
+                      </Link>
+                    ) : (
+                      e.candidate
+                    )}
                   </td>
                   <td className="px-2 whitespace-nowrap">{e.client}</td>
                   <td className="text-muted-foreground px-2 whitespace-nowrap">

@@ -168,10 +168,9 @@ export const NAV_SECTIONS: NavSection[] = [
       {
         id: "candidates",
         label: "Candidates",
-        href: "/planned/candidates",
+        href: "/candidates",
         icon: Users,
-        status: "planned",
-        roadmap: "v0.2.0",
+        status: "live",
         spec: "§15",
         description: "Candidate 360 records and pipeline.",
       },
