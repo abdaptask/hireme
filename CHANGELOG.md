@@ -51,6 +51,20 @@ bump delivers a new vertical slice from the spec ([docs/ROADMAP.md](docs/ROADMAP
   (open / remind / escalate, deep-linking to the 360), pipeline-by-stage,
   start-date risk, and a document-review queue — scoped to the onboarder's
   assigned candidates. Role preview now lands on each role's home workspace.
+- **Recruiter Workspace** (§5.4) — Candidate Handoff funnel at `/recruiter`:
+  roster, handoff funnel, start-date risk with nudge, satisfaction.
+- **Recruiting Manager Workspace** (§5.5) — Team Performance at
+  `/recruiting-manager`: team stats, recruiter/onboarder workload (weighted by
+  risk), stage bottlenecks, throughput trend.
+- **Account Manager Workspace** (§5.6) — Client Readiness at `/account-manager`:
+  client portfolio rollup, client promise tracker (§41.5), start forecast.
+- **My Work action center** (§6) — universal prioritized action inbox at
+  `/my-work` (review / approve / escalate / remind / AI), with quick actions and
+  360 deep-links.
+- With these, **every persona now has a distinct, live workspace** and role
+  preview lands you in it (satisfies acceptance criteria §47 #1–2 for the UI
+  layer; data becomes real with persistence). Shared `ops-data` aggregation
+  layer + `StatTile` component.
 
 > Decisions for the v0.2 persistence half: **Neon serverless Postgres** (via
 > Prisma) and **deferred real auth** (this dev role switcher stands in until a

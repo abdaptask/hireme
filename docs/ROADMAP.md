@@ -67,12 +67,17 @@ Back half — persistence — remaining:
 | Area | Spec | Status |
 | --- | --- | --- |
 | Onboarder workspace | §5.3 | ✅ UI (mock) |
-| (remaining below are planned) | | |
-| Recruiter & Recruiting Manager workspaces | §5.4, §5.5 |
-| Account Manager workspace | §5.6 |
-| Universal "My Work" action center | §6 |
-| Task engine + SLA countdowns | §19 (subset) |
-| Notification center, approvals center | §106, §108 |
+| Recruiter workspace | §5.4 | ✅ UI (mock) |
+| Recruiting Manager workspace | §5.5 | ✅ UI (mock) |
+| Account Manager workspace | §5.6 | ✅ UI (mock) |
+| Universal "My Work" action center | §6 | ✅ UI (mock) |
+| Task engine + SLA countdowns (real) | §19 (subset) | ☐ |
+| Notification center, approvals center | §106, §108 | ☐ |
+
+> All six persona workspaces + the three external portals are now live UI on
+> mock data. The remaining gap to a "real" product is **persistence** (Neon +
+> Prisma — needs `DATABASE_URL`) and the deeper record/config modules
+> (packages, screening, reporting, integrations, AI), tracked below.
 
 ## v0.4.0 — Packages & workflow configuration (Planned)
 
