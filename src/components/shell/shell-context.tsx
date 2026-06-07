@@ -3,9 +3,10 @@
 import { createContext, useContext } from "react";
 
 export type ShellContextValue = {
-  /** Desktop sidebar collapsed (icon-only) state. */
-  collapsed: boolean;
-  toggleCollapsed: () => void;
+  /** Desktop sidebar pinned open. When unpinned it collapses to an icon rail
+   *  that expands on hover. */
+  pinned: boolean;
+  togglePinned: () => void;
   /** Mobile navigation sheet. */
   mobileNavOpen: boolean;
   setMobileNavOpen: (open: boolean) => void;

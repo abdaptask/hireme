@@ -28,15 +28,16 @@ import { DensityMenu } from "@/components/shell/density-menu";
 import { WorkspaceSwitcher } from "@/components/shell/workspace-switcher";
 import { AiCopilotPanel } from "@/components/shell/ai-copilot-panel";
 import { useShell } from "@/components/shell/shell-context";
+import { useEntitlements } from "@/components/providers/entitlements-provider";
 import { getNavItem, type Persona } from "@/lib/nav";
 
 const QUICK_CREATE = [
-  { label: "Candidate", href: "/planned/candidates" },
-  { label: "Consultant", href: "/planned/consultants" },
-  { label: "Client", href: "/planned/clients" },
-  { label: "Task", href: "/planned/my-work" },
-  { label: "Package", href: "/planned/packages" },
-  { label: "Exception", href: "/planned/exceptions" },
+  { label: "Candidate", navId: "candidates", href: "/planned/candidates" },
+  { label: "Consultant", navId: "consultants", href: "/planned/consultants" },
+  { label: "Client", navId: "clients", href: "/planned/clients" },
+  { label: "Task", navId: "my-work", href: "/planned/my-work" },
+  { label: "Package", navId: "packages", href: "/planned/packages" },
+  { label: "Exception", navId: "exceptions", href: "/planned/exceptions" },
 ];
 
 const MOCK_NOTIFICATIONS = [
@@ -62,10 +63,12 @@ function useBreadcrumb(persona: Persona) {
 }
 
 export function AppHeader({ persona }: { persona: Persona }) {
-  const { toggleCollapsed, setMobileNavOpen, setPaletteOpen } = useShell();
+  const { pinned, togglePinned, setMobileNavOpen, setPaletteOpen } = useShell();
+  const { isVisible } = useEntitlements();
   const [aiOpen, setAiOpen] = useState(false);
   const router = useRouter();
   const crumbs = useBreadcrumb(persona);
+  const quickCreate = QUICK_CREATE.filter((q) => isVisible(q.navId));
 
   return (
     <header className="bg-background/80 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-30 flex h-14 items-center gap-2 border-b px-3 backdrop-blur">
@@ -83,8 +86,9 @@ export function AppHeader({ persona }: { persona: Persona }) {
         variant="ghost"
         size="icon"
         className="hidden lg:inline-flex"
-        aria-label="Collapse sidebar"
-        onClick={toggleCollapsed}
+        aria-label={pinned ? "Unpin sidebar" : "Pin sidebar open"}
+        aria-pressed={pinned}
+        onClick={togglePinned}
       >
         <PanelLeft className="size-4.5" />
       </Button>
@@ -149,7 +153,7 @@ export function AppHeader({ persona }: { persona: Persona }) {
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuLabel>Create</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {QUICK_CREATE.map((q) => (
+            {quickCreate.map((q) => (
               <DropdownMenuItem
                 key={q.label}
                 onClick={() => router.push(q.href)}

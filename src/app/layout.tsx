@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { PreferencesProvider } from "@/components/providers/preferences-provider";
+import { EntitlementsProvider } from "@/components/providers/entitlements-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { preferencesBootstrapScript } from "@/lib/preferences";
 
@@ -35,15 +37,17 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full`}
     >
-      <head>
+      <body className="min-h-full">
         {/* Apply theme + density before first paint to avoid a flash. */}
-        <script
+        <Script
+          id="hireme-preferences-bootstrap"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{ __html: preferencesBootstrapScript() }}
         />
-      </head>
-      <body className="min-h-full">
         <PreferencesProvider>
-          <TooltipProvider delay={200}>{children}</TooltipProvider>
+          <EntitlementsProvider>
+            <TooltipProvider delay={200}>{children}</TooltipProvider>
+          </EntitlementsProvider>
         </PreferencesProvider>
       </body>
     </html>

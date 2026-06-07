@@ -29,11 +29,23 @@ export type RiskLevel =
   | "at-risk"
   | "unlikely";
 
-/** Personas with dedicated workspaces (§5). */
+/** AI-classified skill families (from résumé parsing at onboarding start). */
+export type SkillFamily =
+  | "Software & Cloud"
+  | "Data & Analytics"
+  | "Healthcare"
+  | "Finance & Accounting"
+  | "Design & Product"
+  | "Field & Operations";
+
+/** Personas with dedicated workspaces (§5) plus external portal roles (§27). */
 export type PersonaId =
   | "super-admin"
   | "candidate"
   | "onboarder"
   | "recruiter"
   | "recruiting-manager"
-  | "account-manager";
+  | "team-lead"
+  | "account-manager"
+  | "vendor" // external subcontractor (C2C) — scoped portal access
+  | "client"; // external end-client user — scoped portal access

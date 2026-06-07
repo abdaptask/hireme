@@ -11,6 +11,95 @@ bump delivers a new vertical slice from the spec ([docs/ROADMAP.md](docs/ROADMAP
 
 ## [Unreleased]
 
+### v0.2.0 (in progress) — Identity & navigation entitlements
+
+- **Roles & entitlements model** (§42) — six roles (the personas) with default
+  per-role navigation visibility; Super Admin has full access.
+- **Dev role switcher + Role Preview** (§121.7) — render the app as any role to
+  see exactly what it's entitled to, with an "Exit preview" banner.
+- **Sidebar pin/unpin** (§97.1) — unpinned collapses to an icon rail that
+  expands to a labeled flyout on hover; pinned stays open. State persisted.
+- **Per-item info tooltips** — each nav item shows an ⓘ describing what it
+  contains, plus its spec section and roadmap version.
+- **Entitlement-driven navigation** — sidebar, command palette, and quick-create
+  all filter to the current role's visible items; empty sections are hidden.
+- **Administration → Navigation Visibility** (§42) — admin matrix (role × nav
+  item) to show/hide items per role, with bulk show/hide, reset, and
+  per-role preview. Persisted client-side now; becomes account-backed when auth
+  and persistence land (Neon Postgres + Prisma).
+- **Candidates list** (§15) — dense, searchable roster with status, risk,
+  progress, owner; click-through to the 360. Nav item now live.
+- **Candidate 360 record** (§100, §41.1, §41.2) — context header, Next Best
+  Action, six-dimension Readiness Radar, three-part layout (summary · tabbed
+  workspace · context panel), Overview/Timeline/Tasks/Documents tabs plus
+  placeholders for later modules. Command Center feed candidates deep-link in.
+- **Vendor role + Vendor Portal** (§27) — external subcontractor role for C2C
+  deals with a dedicated, scoped portal at `/vendor`. A vendor sees only the
+  consultants their firm submitted, with permitted fields only (no pay/billing/
+  markup, internal notes, recruiter/onboarder identities, or other vendors'
+  people). "Preview as Vendor" routes into the portal; the internal Candidate
+  360 shows the supplying vendor on C2C records.
+- **Client role + Client Portal** (§27) — external end-client role with a
+  scoped portal at `/client-portal`. A client sees only consultants assigned to
+  their organization, with permitted readiness fields (pipeline, screening &
+  equipment status, worker ID) — never other clients, pay/markup, or internal
+  notes. Client actions: approve package, confirm start date, add client worker
+  ID, download report. Completes the external-stakeholder trio (candidate,
+  vendor, client); external-role routing generalized via `isExternalRole`.
+- **Onboarder Workspace** (§5.3, §53) — HR Operations command center at
+  `/onboarder`: workload vitals, a prioritized "needs attention" work queue
+  (open / remind / escalate, deep-linking to the 360), pipeline-by-stage,
+  start-date risk, and a document-review queue — scoped to the onboarder's
+  assigned candidates. Role preview now lands on each role's home workspace.
+- **Recruiter Workspace** (§5.4) — Candidate Handoff funnel at `/recruiter`:
+  roster, handoff funnel, start-date risk with nudge, satisfaction.
+- **Recruiting Manager Workspace** (§5.5) — Team Performance at
+  `/recruiting-manager`: team stats, recruiter/onboarder workload (weighted by
+  risk), stage bottlenecks, throughput trend.
+- **Account Manager Workspace** (§5.6) — Client Readiness at `/account-manager`:
+  client portfolio rollup, client promise tracker (§41.5), start forecast.
+- **My Work action center** (§6) — universal prioritized action inbox at
+  `/my-work` (review / approve / escalate / remind / AI), with quick actions and
+  360 deep-links.
+- With these, **every persona now has a distinct, live workspace** and role
+  preview lands you in it (satisfies acceptance criteria §47 #1–2 for the UI
+  layer; data becomes real with persistence). Shared `ops-data` aggregation
+  layer + `StatTile` component.
+- **Team Lead persona + Pod Performance workspace** (§5) — a 7th internal
+  persona between Recruiter and Recruiting Manager, with a pod-scoped tactical
+  view at `/team-lead`: pod stats, today's priorities, member workload, coaching
+  flags.
+- **Reports hub** (§49) at `/reports` — catalog of report categories.
+- **Financial Performance report** (§67.4) at `/reports/financial` — 12-month
+  historical trends (revenue, margin, cost-per-onboarding), month-over-month
+  comparison, by-client financials, cost breakdown, revenue-at-risk.
+- **Skills & Specialty report** (§49) at `/reports/specialty` — data-backed
+  "what's your specialty": top skills (volume, success, time-to-fill,
+  satisfaction), geographical strengths, a client-ready strengths summary, and
+  current pipeline tied to specialty areas.
+- **Theme bootstrap** now uses `next/script` `beforeInteractive` (clean console).
+- **Org hierarchy** (§5, §36, §55) — modeled manager → *optional* team lead → IC
+  for recruiting and onboarding (`src/lib/org.ts`); candidate data normalized so
+  recruiters and onboarders are distinct people. Recruiting Manager workspace
+  renders the org tree (team-lead pods + direct-to-manager reports) for both
+  functions; Team Lead pod is org-derived.
+- **AI-extracted skills** (§10, §20) — each candidate's résumé is parsed at
+  onboarding start; the AI classifies a skill family and extracts granular
+  skills (mocked deterministically; real parsing arrives with the AI layer).
+  Surfaced on the Candidate 360 ("Skills — AI-extracted from résumé" with
+  confidence) and now **drives the Skills & Specialty report** — top granular
+  pipeline skills + AI-classified family distribution, with an explainable note
+  that the report runs off résumé classification.
+- **Reports catalog** (§49) — Reports hub rebuilt to mirror the real ApTask
+  report menu: Financial Reports, Recruiters, and Back Office categories with
+  every report listed. Each is a placeholder (`/reports/[slug]`) to be built
+  individually; the two analytics reports already built (Financial Performance,
+  Skills & Specialty) surface as live "Available now" previews.
+
+> Decisions for the v0.2 persistence half: **Neon serverless Postgres** (via
+> Prisma) and **deferred real auth** (this dev role switcher stands in until a
+> provider is wired).
+
 ## [0.1.0] — Foundation slice
 
 First versioned increment. Establishes the design system and application shell,

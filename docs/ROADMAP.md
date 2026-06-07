@@ -35,26 +35,59 @@ Design system, app shell, and two flagship workspaces on mock data.
 
 ---
 
-## v0.2.0 — Persistence & identity (Planned)
+## v0.2.0 — Persistence & identity (In progress)
 
-| Area | Spec |
-| --- | --- |
-| Postgres (Neon) + Prisma schema for core entities | §43, §44 |
-| Auth (SSO/OIDC-ready), roles & permissions (RBAC/ABAC) | §42 |
-| Candidate/Consultant 360 data model + record page | §15, §100 |
-| Audit event capture | §26 |
-| Seed data replacing mocks | — |
+**Decisions:** persistence = **Neon serverless Postgres** via Prisma; real auth
+is **deferred** in favour of a dev role switcher until a provider is wired.
 
-## v0.3.0 — Onboarding operations (Planned)
+Front half — identity & navigation entitlements — ✅ done (on `feat/v0.2-identity-nav`):
 
-| Area | Spec |
-| --- | --- |
-| Onboarder workspace | §5.3 |
-| Recruiter & Recruiting Manager workspaces | §5.4, §5.5 |
-| Account Manager workspace | §5.6 |
-| Universal "My Work" action center | §6 |
-| Task engine + SLA countdowns | §19 (subset) |
-| Notification center, approvals center | §106, §108 |
+| Area | Spec | Status |
+| --- | --- | --- |
+| Roles & per-role navigation entitlements (RBAC) | §42 | ✅ |
+| Dev role switcher + Role Preview | §121.7 | ✅ |
+| Sidebar pin/unpin + icon rail + info tooltips | §97.1 | ✅ |
+| Admin navigation-visibility matrix | §42 | ✅ |
+| Vendor role + scoped external Vendor Portal (C2C) | §27 | ✅ UI (binds to DB) |
+| Client role + scoped external Client Portal | §27 | ✅ UI (binds to DB) |
+
+Back half — persistence — remaining:
+
+| Area | Spec | Status |
+| --- | --- | --- |
+| Candidate 360 record page + Candidates list (mock) | §15, §100 | ✅ UI (binds to DB) |
+| Neon Postgres + Prisma schema for core entities | §43, §44 | ☐ (needs DATABASE_URL) |
+| Consultant 360 + 360 data model bound to DB | §15, §100 | ☐ |
+| Audit event capture | §26 | ☐ |
+| Entitlements + preferences persisted to DB | §42 | ☐ |
+| Seed data replacing mocks | — | ☐ |
+
+## v0.3.0 — Onboarding operations (In progress)
+
+| Area | Spec | Status |
+| --- | --- | --- |
+| Onboarder workspace | §5.3 | ✅ UI (mock) |
+| Recruiter workspace | §5.4 | ✅ UI (mock) |
+| Recruiting Manager workspace | §5.5 | ✅ UI (mock) |
+| Account Manager workspace | §5.6 | ✅ UI (mock) |
+| Universal "My Work" action center | §6 | ✅ UI (mock) |
+| Team Lead persona + Pod Performance workspace | §5 | ✅ UI (mock) |
+| Task engine + SLA countdowns (real) | §19 (subset) | ☐ |
+| Notification center, approvals center | §106, §108 | ☐ |
+
+### Reporting brought forward (from v0.7)
+
+| Area | Spec | Status |
+| --- | --- | --- |
+| Reports hub | §49 | ✅ UI (mock) |
+| Financial Performance report (historical + comparative) | §67.4 | ✅ UI (mock) |
+| Skills & Specialty / geographical strengths report | §49 | ✅ UI (mock) |
+| Remaining report catalog (operational, compliance, AI, …) | §49–§68 | ☐ |
+
+> All six persona workspaces + the three external portals are now live UI on
+> mock data. The remaining gap to a "real" product is **persistence** (Neon +
+> Prisma — needs `DATABASE_URL`) and the deeper record/config modules
+> (packages, screening, reporting, integrations, AI), tracked below.
 
 ## v0.4.0 — Packages & workflow configuration (Planned)
 
