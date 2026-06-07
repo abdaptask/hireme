@@ -280,6 +280,46 @@ export const CANDIDATES: CandidateSummary[] = [
     tags: ["Training assigned"],
   },
   {
+    id: "tara-voss",
+    name: "Tara Voss",
+    role: "Care Navigator",
+    client: "Meridian Health",
+    employmentType: "W-2",
+    location: "Onsite · Houston, TX",
+    stage: "Client Requirements",
+    status: "in-review",
+    risk: "needs-attention",
+    startDateLabel: "Jun 24",
+    startInDays: 12,
+    recruiter: "Lena Ortiz",
+    onboarder: "Riya Kim",
+    progress: 64,
+    lastActivity: "30m ago",
+    email: "tara.voss@example.com",
+    phone: "+1 (713) 555-0190",
+    tags: ["Package awaiting client approval"],
+  },
+  {
+    id: "leo-park",
+    name: "Leo Park",
+    role: "Pharmacy Technician",
+    client: "Meridian Health",
+    employmentType: "W-2",
+    location: "Onsite · Houston, TX",
+    stage: "IT Provisioning",
+    status: "on-track",
+    risk: "on-track",
+    startDateLabel: "Jun 17",
+    startInDays: 5,
+    recruiter: "Lena Ortiz",
+    onboarder: "Riya Kim",
+    progress: 82,
+    lastActivity: "1h ago",
+    email: "leo.park@example.com",
+    phone: "+1 (713) 555-0191",
+    tags: [],
+  },
+  {
     id: "ravi-menon",
     name: "Ravi Menon",
     role: "Backend Engineer",
@@ -497,4 +537,75 @@ export function getVendorCandidates(
   vendor: string = CURRENT_VENDOR,
 ): VendorCandidateView[] {
   return CANDIDATES.filter((c) => c.vendor === vendor).map(toVendorView);
+}
+
+/* ---------------------------------------------------------------------------
+   Client portal scoping (§27).
+   End-client users see only their own incoming consultants and only permitted
+   fields. They may confirm start dates, approve packages, and add client worker
+   IDs — but never see other clients' people, confidential pay/markup, internal
+   notes, or internal AI analysis.
+   --------------------------------------------------------------------------- */
+
+/** The end client currently signed into the demo portal. */
+export const CURRENT_CLIENT = "Meridian Health";
+
+export type ClientCandidateView = {
+  id: string;
+  name: string;
+  role: string;
+  location: string;
+  employmentType: string;
+  stage: string;
+  status: PipelineStatus;
+  startDateLabel: string;
+  startInDays: number;
+  progress: number;
+  screeningStatus: string;
+  equipmentStatus: string;
+  /** Client-assigned worker ID — null prompts the client to add one. */
+  clientWorkerId: string | null;
+  /** A package is waiting on this client's approval. */
+  approvalNeeded: boolean;
+};
+
+function equipmentStatusFor(c: CandidateSummary): string {
+  if (c.stage === "Day 1 Preparation") return "Delivered";
+  if (c.stage === "IT Provisioning") return "Shipped";
+  if (c.progress > 70) return "Preparing";
+  return "Not started";
+}
+
+/** Project an internal candidate down to the client-permitted view (§27). */
+export function toClientView(c: CandidateSummary): ClientCandidateView {
+  return {
+    id: c.id,
+    name: c.name,
+    role: c.role,
+    location: c.location,
+    employmentType: c.employmentType,
+    stage: c.stage,
+    status: c.status,
+    startDateLabel: c.startDateLabel,
+    startInDays: c.startInDays,
+    progress: c.progress,
+    screeningStatus:
+      c.stage === "Background Check"
+        ? "In progress"
+        : c.progress > 60
+          ? "Clear"
+          : "Pending",
+    equipmentStatus: equipmentStatusFor(c),
+    clientWorkerId: c.progress >= 75 ? `MH-${c.id.slice(0, 3).toUpperCase()}-204` : null,
+    approvalNeeded:
+      c.tags.includes("Package awaiting client approval") ||
+      c.stage === "Client Requirements",
+  };
+}
+
+/** All consultants an end client is entitled to see (their own, permitted view). */
+export function getClientCandidates(
+  client: string = CURRENT_CLIENT,
+): ClientCandidateView[] {
+  return CANDIDATES.filter((c) => c.client === client).map(toClientView);
 }

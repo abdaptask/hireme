@@ -39,6 +39,13 @@ bump delivers a new vertical slice from the spec ([docs/ROADMAP.md](docs/ROADMAP
   markup, internal notes, recruiter/onboarder identities, or other vendors'
   people). "Preview as Vendor" routes into the portal; the internal Candidate
   360 shows the supplying vendor on C2C records.
+- **Client role + Client Portal** (§27) — external end-client role with a
+  scoped portal at `/client-portal`. A client sees only consultants assigned to
+  their organization, with permitted readiness fields (pipeline, screening &
+  equipment status, worker ID) — never other clients, pay/markup, or internal
+  notes. Client actions: approve package, confirm start date, add client worker
+  ID, download report. Completes the external-stakeholder trio (candidate,
+  vendor, client); external-role routing generalized via `isExternalRole`.
 
 > Decisions for the v0.2 persistence half: **Neon serverless Postgres** (via
 > Prisma) and **deferred real auth** (this dev role switcher stands in until a

@@ -137,6 +137,16 @@ export const PERSONAS: Persona[] = [
     description:
       "External subcontractor (C2C) — scoped access to their own submitted candidates.",
   },
+  {
+    id: "client",
+    label: "Client",
+    workspace: "Client Portal",
+    home: "/client-portal",
+    icon: Building2,
+    status: "live",
+    description:
+      "External end-client user — scoped readiness view of their own incoming consultants.",
+  },
 ];
 
 export const DEFAULT_PERSONA: Persona = PERSONAS[0];
