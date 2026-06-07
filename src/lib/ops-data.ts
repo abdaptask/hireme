@@ -4,6 +4,7 @@
  * persistence half of v0.2.
  */
 import { CANDIDATES, type CandidateSummary } from "@/lib/candidates";
+import { managerStructure, podOf, type OrgFunction } from "@/lib/org";
 import type { StatusTone } from "@/lib/types";
 
 /* ----------------------------- Recruiter (§5.4) ---------------------------- */
@@ -104,17 +105,31 @@ export function stageBottlenecks(): { name: string; value: number }[] {
 
 /* ----------------------------- Team Lead --------------------------------- */
 
-/** A team lead runs a pod of recruiters — a tactical subset of the team. */
-export const TEAM_LEAD = "Devon Hughes";
-export const POD_MEMBERS = ["Devon Hughes", "Lena Ortiz"];
-
-export function getPodCandidates(): CandidateSummary[] {
-  return CANDIDATES.filter((c) => POD_MEMBERS.includes(c.recruiter));
+/** Workload for a single person (as recruiter or onboarder — names are unique
+ *  across roles), so org rollups can be assembled member-by-member. */
+export function personWorkload(name: string): OwnerWorkload {
+  const list = CANDIDATES.filter(
+    (c) => c.recruiter === name || c.onboarder === name,
+  );
+  const atRisk = list.filter(
+    (c) => c.risk === "at-risk" || c.risk === "unlikely",
+  ).length;
+  return { name, active: list.length, atRisk, weighted: list.length + atRisk };
 }
 
-/** Workload for the pod's recruiters only. */
+/** The demo team lead (recruiting). Their pod comes from the org tree. */
+export const TEAM_LEAD = "Devon Hughes";
+export const POD_MEMBERS = podOf(TEAM_LEAD);
+
+export function getPodCandidates(): CandidateSummary[] {
+  return CANDIDATES.filter(
+    (c) => POD_MEMBERS.includes(c.recruiter) || POD_MEMBERS.includes(c.onboarder),
+  );
+}
+
+/** Workload for each member of the pod (lead + their ICs). */
 export function podMemberWorkload(): OwnerWorkload[] {
-  return recruiterWorkload().filter((r) => POD_MEMBERS.includes(r.name));
+  return POD_MEMBERS.map(personWorkload).sort((a, b) => b.weighted - a.weighted);
 }
 
 /** Members whose share of at-risk work suggests a coaching conversation. */
@@ -128,6 +143,25 @@ export function coachingFlags(): { name: string; reason: string }[] {
           ? `${m.atRisk} at-risk starts — review pipeline together`
           : `${m.atRisk} at-risk start — check in`,
     }));
+}
+
+/** Manager rollup respecting the optional team-lead layer (§55). */
+export type ManagerRollup = {
+  manager: string;
+  teams: { lead: string; members: OwnerWorkload[] }[];
+  directs: OwnerWorkload[];
+};
+
+export function managerRollup(fn: OrgFunction): ManagerRollup {
+  const s = managerStructure(fn);
+  return {
+    manager: s.manager,
+    teams: s.teams.map((t) => ({
+      lead: t.lead,
+      members: t.members.map(personWorkload),
+    })),
+    directs: s.directs.map(personWorkload),
+  };
 }
 
 /* ------------------------- Account Manager (§5.6) -------------------------- */
