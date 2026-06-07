@@ -11,6 +11,82 @@ bump delivers a new vertical slice from the spec ([docs/ROADMAP.md](docs/ROADMAP
 
 ## [Unreleased]
 
+- **Consultants roster + Consultant 360** (§15, §38) at `/consultants` —
+  lifecycle-aware roster (Active / Bench / Extension Pending / Offboarding /
+  Converted / Former / Ineligible) with bill & pay rates, assignment, client,
+  and owner columns; click through to a 3-tab 360 (Overview / Assignments /
+  Lifecycle) with readiness radar, contact card, full assignment timeline.
+  Nav item now live.
+
+- **Packages** (§8, §9, §102) at `/packages` — card-grid view of 8 onboarding
+  packages with version, status (Draft/In Review/Approved/Published/Retired),
+  required item counts, client applicability, employment-type tags, and
+  effective date. Package builder deep-link placeholder per card.
+
+- **Documents** (§20, §113) at `/documents` — search + 7-category filter
+  (background, tax, employment, identity, benefits, training, compliance),
+  AI quality score bar (0–100 with color coding), extracted AI flags per
+  document, status badges (pending / submitted / ai-review / approved /
+  rejected / expired / correction-required). 20 document records seeded.
+
+- **Screening** (§22, §58) at `/screening` — vendor-grouped pipeline
+  (HireRight, Sterling, First Advantage, Checkr), status progression from
+  Ordered through Adverse Pending, danger-tinted rows for review-required and
+  adverse-pending records, SLA countdowns. 12 screening records.
+
+- **Payroll Readiness** (§16.2, §59) at `/payroll` — filter bar (All / Not
+  Ready / Pending), expandable rows showing an 11-point check grid
+  (Classification, Pay Rate, Overtime, Tax Jurisdiction, Direct Deposit, W-4,
+  State Tax, I-9, Benefits, Payroll Entity, Start Date) with pass/fail/pending
+  icons and a mini-readiness summary per candidate.
+
+- **Billing Readiness** (§16.3, §60) at `/billing` — identical pattern with
+  11 billing-specific checks (Bill Rate, Markup, PO, Cost Center, Client
+  Worker ID, VMS ID, Invoice Frequency, Timesheet Method, Expense Policy,
+  Billing Entity, Approved Start Date). PO and worker-ID pills in expanded
+  view. Revenue-at-risk summary tile.
+
+- **Equipment & IT Provisioning** (§17, §61) at `/equipment` — IT access
+  4-icon row per candidate (email / VPN / client credentials / device
+  enrolled), expandable item detail table (Laptop, Monitor, Headset, Phone,
+  Security Token, Badge, Software License) with asset status
+  (requested → shipped → enrolled → ready / delayed). 10 equipment records.
+
+- **Communications** (§24, §63) at `/communications` — channel filter tabs
+  (Email / SMS / Portal / Voice), nudge-level badges (1–5) with escalation
+  color coding, sentiment and delivery status, candidate + owner shown
+  inline. 18 communication records seeded.
+
+- **Training** (§37, §62) at `/training` — filter (All / Overdue / Required),
+  color-coded completion scores, category tags (Security / Client / Safety /
+  Compliance / Timekeeping), due-date countdown, 20 training records.
+
+- **Integrations** (§29, §74–§95) at `/integrations` — 3-col card grid for
+  10 integrations (Bullhorn ATS, SAP Fieldglass VMS, ADP Payroll, HireRight
+  Screening, DocuSign eSign, Twilio SMS, Okta IAM, ServiceNow ITSM, Workday
+  HRIS, SendGrid Email) showing health status (connected / degraded / error /
+  disconnected), last-sync timestamp, success rate, latency, records/day, and
+  a conditional Retry button on error states.
+
+- **Workflow Studio** (§19, §103) at `/workflow-studio` — 3-panel canvas
+  layout: left sidebar lists saved workflows with status badges; center panel
+  shows a CSS node canvas with Start → Task → Decision → Integration → End
+  nodes connected via SVG arrows (draggable placeholder); right inspector
+  panel shows node properties with a read-only rule builder preview. Bottom
+  toolbar: Validate, Test Run, Version History, Publish.
+
+- **Compliance Policies** (§21, §57) at `/compliance` — 12 policies across 5
+  jurisdictions (Federal, California, New York, Texas, Illinois) organized by
+  category (background, drug, document, training, insurance, security),
+  effective/expiration dates, owner, legal approver, and acknowledgment
+  requirement. Search + jurisdiction + category filters.
+
+- **Audit Center** (§26, §66) at `/audit` — searchable + event-type filtered
+  dense grid of 25 audit events (created, updated, approved, rejected,
+  escalated, overridden, exported, ai-action, integration-event, deleted)
+  with actor, entity, previous/new value, device/IP, AI involvement flag,
+  and critical-row highlighting. Export and date-range filter.
+
 - **Clients roster + Client 360** (§27, §30, §56) at `/clients` — portfolio
   list with compliance rate, start-date success, pipeline count, and industry
   badges; click through to a full client detail page with four tabs:
@@ -45,6 +121,10 @@ bump delivers a new vertical slice from the spec ([docs/ROADMAP.md](docs/ROADMAP
   SLA-breached/start-impact stats, category (Pareto) and severity distributions,
   and a severity-prioritized exceptions table (owner, age, SLA, start-date
   impact, status) linking to the Candidate 360. Exceptions nav item now live.
+
+- **All 21 primary nav items now live** (§4) — every section from Home through
+  Audit Center has a built page; no more `/planned/*` redirects for any core
+  nav item. The complete platform navigation is fully operational.
 
 ### v0.2.0 (in progress) — Identity & navigation entitlements
 
