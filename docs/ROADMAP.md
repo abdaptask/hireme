@@ -62,11 +62,12 @@ Back half — persistence — remaining:
 | Entitlements + preferences persisted to DB | §42 | ☐ |
 | Seed data replacing mocks | — | ☐ |
 
-## v0.3.0 — Onboarding operations (Planned)
+## v0.3.0 — Onboarding operations (In progress)
 
-| Area | Spec |
-| --- | --- |
-| Onboarder workspace | §5.3 |
+| Area | Spec | Status |
+| --- | --- | --- |
+| Onboarder workspace | §5.3 | ✅ UI (mock) |
+| (remaining below are planned) | | |
 | Recruiter & Recruiting Manager workspaces | §5.4, §5.5 |
 | Account Manager workspace | §5.6 |
 | Universal "My Work" action center | §6 |

@@ -46,6 +46,11 @@ bump delivers a new vertical slice from the spec ([docs/ROADMAP.md](docs/ROADMAP
   notes. Client actions: approve package, confirm start date, add client worker
   ID, download report. Completes the external-stakeholder trio (candidate,
   vendor, client); external-role routing generalized via `isExternalRole`.
+- **Onboarder Workspace** (§5.3, §53) — HR Operations command center at
+  `/onboarder`: workload vitals, a prioritized "needs attention" work queue
+  (open / remind / escalate, deep-linking to the 360), pipeline-by-stage,
+  start-date risk, and a document-review queue — scoped to the onboarder's
+  assigned candidates. Role preview now lands on each role's home workspace.
 
 > Decisions for the v0.2 persistence half: **Neon serverless Postgres** (via
 > Prisma) and **deferred real auth** (this dev role switcher stands in until a

@@ -609,3 +609,89 @@ export function getClientCandidates(
 ): ClientCandidateView[] {
   return CANDIDATES.filter((c) => c.client === client).map(toClientView);
 }
+
+/* ---------------------------------------------------------------------------
+   Onboarder workspace helpers (§5.3, §53).
+   --------------------------------------------------------------------------- */
+
+/** The onboarder signed into the demo HR Operations workspace. */
+export const CURRENT_ONBOARDER = "Riya Kim";
+
+const STAGE_ORDER = [
+  "Profile Setup",
+  "Document Submission",
+  "Background Check",
+  "Tax & Payroll",
+  "Client Requirements",
+  "IT Provisioning",
+  "Training",
+  "Day 1 Preparation",
+];
+
+/** Candidates assigned to an onboarder. */
+export function getOnboarderCandidates(
+  onboarder: string = CURRENT_ONBOARDER,
+): CandidateSummary[] {
+  return CANDIDATES.filter((c) => c.onboarder === onboarder);
+}
+
+/** Urgency rank for the work queue — higher means more urgent. */
+function urgency(c: CandidateSummary): number {
+  const riskWeight: Record<string, number> = {
+    unlikely: 400,
+    "at-risk": 300,
+    "needs-attention": 150,
+    "on-track": 0,
+  };
+  return (riskWeight[c.risk] ?? 0) + Math.max(0, 30 - c.startInDays) * 4;
+}
+
+/** Candidates needing the onboarder's attention, most urgent first (§53.1). */
+export function getWorkQueue(
+  onboarder: string = CURRENT_ONBOARDER,
+): CandidateSummary[] {
+  const actionable: CandidateSummary["status"][] = [
+    "needs-attention",
+    "at-risk",
+    "in-review",
+    "ai-pending",
+    "waiting-external",
+  ];
+  return getOnboarderCandidates(onboarder)
+    .filter((c) => actionable.includes(c.status))
+    .sort((a, b) => urgency(b) - urgency(a));
+}
+
+/** Stage distribution for the onboarder's pipeline (bird's-eye view, §5.3). */
+export function getStageCounts(
+  onboarder: string = CURRENT_ONBOARDER,
+): { stage: string; count: number }[] {
+  const mine = getOnboarderCandidates(onboarder);
+  return STAGE_ORDER.map((stage) => ({
+    stage,
+    count: mine.filter((c) => c.stage === stage).length,
+  })).filter((s) => s.count > 0);
+}
+
+/** At-risk starts for the onboarder, soonest first (§33). */
+export function getStartDateRisks(
+  onboarder: string = CURRENT_ONBOARDER,
+): CandidateSummary[] {
+  return getOnboarderCandidates(onboarder)
+    .filter((c) => c.risk === "at-risk" || c.risk === "unlikely")
+    .sort((a, b) => a.startInDays - b.startInDays);
+}
+
+/** Documents awaiting the onboarder's review (§53.2), derived from status. */
+export function getDocReviewQueue(
+  onboarder: string = CURRENT_ONBOARDER,
+): { candidate: CandidateSummary; document: string; tone: StatusTone }[] {
+  return getOnboarderCandidates(onboarder)
+    .filter((c) => c.status === "in-review" || c.status === "needs-attention")
+    .map((c) => ({
+      candidate: c,
+      document:
+        c.status === "needs-attention" ? "Government ID (rejected)" : "I-9 / tax forms",
+      tone: c.status === "needs-attention" ? ("danger" as const) : ("info" as const),
+    }));
+}

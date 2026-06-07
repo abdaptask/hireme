@@ -91,10 +91,9 @@ export const PERSONAS: Persona[] = [
     id: "onboarder",
     label: "Onboarder",
     workspace: "HR Operations",
-    home: "/planned/onboarder",
+    home: "/onboarder",
     icon: ClipboardList,
-    status: "planned",
-    roadmap: "v0.3.0",
+    status: "live",
     description: "Manage all active new hires and exceptions.",
   },
   {

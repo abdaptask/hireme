@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { getPersona, NAV_SECTIONS } from "@/lib/nav";
-import { ADMIN_ROLE, isExternalRole, ROLES, type RoleId } from "@/lib/roles";
+import { ADMIN_ROLE, ROLES, type RoleId } from "@/lib/roles";
 import { useEntitlements } from "@/components/providers/entitlements-provider";
 import { cn } from "@/lib/utils";
 
@@ -31,7 +31,7 @@ export default function AdministrationPage() {
 
   function previewAs(role: RoleId) {
     setViewAs(role);
-    router.push(isExternalRole(role) ? getPersona(role).home : "/command-center");
+    router.push(getPersona(role).home);
   }
 
   return (
