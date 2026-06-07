@@ -11,6 +11,27 @@ bump delivers a new vertical slice from the spec ([docs/ROADMAP.md](docs/ROADMAP
 
 ## [Unreleased]
 
+- **Initiate Onboarding flow** (§9, §14) — a 5-step slide-over sheet matching
+  the full ApTask "New Consultant" form, surfaced in three places:
+  - **Onboarding pipeline page** (`/onboarding`, nav now live) — stage bar
+    (click to filter), active-onboardings table with per-row "Start" action,
+    stat tiles (active / starting this week / at risk / needs action), and a
+    global "Initiate Onboarding" header button.
+  - **Candidates list** (`/candidates`) — global "Initiate Onboarding" button
+    in the page header plus a per-row "Start" action that pre-fills from the
+    candidate record.
+  - **Candidate 360** (`/candidates/[id]`) — "Initiate Onboarding" button in
+    the sticky context header, pre-filled with name, email, phone, client,
+    and job title from the candidate's 360 data.
+  - The sheet covers all original form fields across 5 structured steps:
+    Candidate Info · Assignment · Rates & Location · Team & Screening · Review.
+    Employment-type toggle (Contract / Full Time / Employee) persists in the
+    header across all steps. Step 5 shows an AI note that the compliance
+    package will be auto-generated post-submit based on client rules, state,
+    employment type, and job category (§8 Dynamic Package Assembly).
+    "Save as Draft" and "Submit" both available; "Block sending emails"
+    checkbox in footer. Pre-fill from any existing candidate record.
+
 - **Exception Control Tower** (§18, §104) at `/exceptions` — open/critical/
   SLA-breached/start-impact stats, category (Pareto) and severity distributions,
   and a severity-prioritized exceptions table (owner, age, SLA, start-date

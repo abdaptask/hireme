@@ -35,6 +35,7 @@ import {
   type ReadinessDimension,
   type TimelineEvent,
 } from "@/lib/candidates";
+import { InitiateOnboardingButton } from "@/app/(app)/candidates/[id]/initiate-button";
 import { cn } from "@/lib/utils";
 
 export async function generateMetadata({
@@ -163,6 +164,20 @@ export default async function CandidateRecordPage({
               </p>
             </div>
             <div className="ml-auto flex items-center gap-2">
+              <InitiateOnboardingButton
+                prefill={{
+                  firstName: c.name.split(" ")[0],
+                  lastName: c.name.split(" ").slice(1).join(" "),
+                  candidateEmail: c.email,
+                  mobile: c.phone,
+                  client: c.client,
+                  jobTitle: c.role,
+                  employmentType:
+                    c.employmentType === "C2C"
+                      ? "contract"
+                      : "full-time",
+                }}
+              />
               <Button size="sm">
                 {c.nextBestAction.cta}
                 <ArrowRight className="size-4" />
