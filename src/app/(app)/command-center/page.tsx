@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Cake, Gift, PartyPopper, Send, Trophy } from "lucide-react";
+import Link from "next/link";
+import { Cake, Gift, PartyPopper, Send, Sparkles, Trophy } from "lucide-react";
 import { PageContainer, PageHeader } from "@/components/page";
 import { FilterBar } from "@/components/command-center/filter-bar";
 import { EventFeed } from "@/components/command-center/event-feed";
@@ -12,6 +13,9 @@ import {
 } from "@/components/dashboard/widgets";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { MorningBriefing } from "@/components/ai/morning-briefing";
+import { RecommendationCard } from "@/components/ai/recommendation-card";
+import { getRecommendations } from "@/lib/ai";
 import {
   ANNIVERSARIES,
   BIRTHDAYS,
@@ -59,6 +63,8 @@ function EngagementList({
 }
 
 export default function CommandCenterPage() {
+  const topRecommendations = getRecommendations("super-admin").slice(0, 3);
+
   return (
     <PageContainer className="flex flex-col gap-6">
       <PageHeader
@@ -71,6 +77,9 @@ export default function CommandCenterPage() {
           </Badge>
         }
       />
+
+      {/* AI Morning Briefing (§41.4) */}
+      <MorningBriefing />
 
       <FilterBar />
 
@@ -178,6 +187,33 @@ export default function CommandCenterPage() {
             <OpsTileCard key={t.id} {...t} />
           ))}
         </div>
+      </section>
+
+      {/* AI Recommendations widget (§10, §105) */}
+      <section>
+        <WidgetCard
+          title={
+            <span className="flex items-center gap-1.5">
+              <Sparkles className="text-ai size-3.5" />
+              AI Recommendations
+            </span>
+          }
+          description="Top pending actions and insights"
+          action={
+            <Link
+              href="/my-work"
+              className="text-muted-foreground hover:text-foreground text-xs transition-colors"
+            >
+              View all →
+            </Link>
+          }
+        >
+          <div className="flex flex-col gap-2">
+            {topRecommendations.map((rec) => (
+              <RecommendationCard key={rec.id} recommendation={rec} compact />
+            ))}
+          </div>
+        </WidgetCard>
       </section>
 
       {/* Fourth Row — Culture & Engagement (§7) */}

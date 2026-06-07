@@ -11,6 +11,95 @@ bump delivers a new vertical slice from the spec ([docs/ROADMAP.md](docs/ROADMAP
 
 ## [Unreleased]
 
+### Package Builder (§9, §102)
+
+- **`/packages` list** — each card now links to `/packages/[id]`, shows AI
+  review status badge and a completion progress bar driven by `completionPct`.
+  "Build Package" button in the page header opens the 8-step wizard sheet.
+
+- **`/packages/[id]` — 3-panel Package Builder** — flagship visual config UI:
+  - *Left panel (w-72)*: Rule Inputs summary (client, employment type, work
+    location, job category, effective date) + Rule Evaluation list — each rule
+    shows a green ✓ / gray ✗, the AI-explained reason, an "AI" badge, and
+    applies-vs-not-applies grouping.
+  - *Center panel*: completion progress bar + all 7 sections as collapsible
+    groups (Required Documents, Optional Documents, Approvals, Training,
+    Screening, IT Provisioning, Tax & Payroll). Each item row: drag handle
+    placeholder, label, AI badge (if AI-recommended), conditional chip, type
+    badge, required/optional badge, owner chip, due-offset, lock/remove.
+  - *Right panel (w-80)*: AI Review card (clean / warnings / errors with Fix
+    buttons), Package Stats grid, Approvals list with status badges, Dispatch
+    History per channel.
+  - Sticky header: §41.1 Next Best Action strip, version + status badges,
+    client/employment chips, Run AI Review / Edit / Approve & Dispatch actions.
+
+- **`BuildPackageSheet`** — 8-step multi-step wizard (680px slide-over, same
+  pattern as Initiate Onboarding sheet):
+  1. Consultant Assignment — select consultant, auto-detect client/MSP/
+     employment type/location/start date/recruiter/AM/risk score.
+  2. Rule Evaluation — 1s simulated evaluation, rules grouped by category
+     (client, state, employment, job, security, training) with AI explanations.
+  3. Package Preview — assembled items list + AI Package Notes card.
+  4. Modify Package — due-offset inputs, owner select, lock on required items,
+     inline add-item search, internal note + candidate instruction fields.
+  5. AI Review — 1.5s simulated review, 3-4 finding cards (error/warning) each
+     with Fix and Ignore actions; resolved findings shown with strikethrough.
+  6. Approval — readiness summary (compliance/payroll/billing/candidate),
+     required approvals checklist, Approve / Return / Request Legal actions.
+  7. Dispatch — channel multi-select (Email/SMS/Portal/Combined), timing
+     (Immediate/Scheduled), message preview, language preference note.
+  8. Tracking/Success — checkmark animation, dispatch summary, tracking preview,
+     "View Package" and "Done" actions.
+  Employment-type toggle (W-2 / 1099 / C2C) persists in header across all steps.
+
+- **`src/lib/packages.ts` fully rebuilt** — all 8 packages enriched with 12–22
+  `PackageItem` entries (7 sections each), 5–8 `PackageRule` entries with AI
+  explanations, dispatch history, and approval chains. New types: `PackageItem`,
+  `PackageRule`, `PackageDispatch`, `PackageApproval`, `PackageSection`.
+  New helpers: `getPackage()`, `getPackageItems()`, `getPackagesByClient()`,
+  `SECTION_META`.
+
+### AI Copilot Layer (§10, §11, §105)
+
+- **`src/lib/ai.ts`** — AI data layer: `AiRecommendation` (14 mock entries
+  spanning all urgency levels, types, and personas), `MorningBriefing`,
+  `CandidateAiSummary`. Exports: `getMorningBriefing()`, `getRecommendations(persona?)`,
+  `getCandidateAiSummary(candidateId)` with specific summaries for james-rivera,
+  grace-okafor, marcus-webb, aisha-bello.
+
+- **`RecommendationCard`** (§2.3 Explainable AI) — collapsed state: urgency
+  accent bar, type icon (Zap/AlertTriangle/TrendingUp/ShieldAlert), title,
+  confidence dot, urgency badge, Accept/Reject/Details. Expanded state adds:
+  "What was detected", "Why it matters", "Data used" chips, "Recommended
+  action" highlighted block, amber "Human approval required" warning,
+  status footer. Supports `compact` mode.
+
+- **`MorningBriefing`** (§41.4) — dismissible card at the top of the Command
+  Center. AI purple left-border gradient, number-highlighted narrative summary,
+  scrollable highlight pills (start dates at risk / docs to review / BGC over
+  SLA / unresponsive candidates / AI actions pending) with tone colors and
+  deep-link navigation. Ask-AI follow-up input.
+
+- **`CopilotPanel`** (§105) — fixed right-side 384px slide-in panel. Chat
+  bubbles (user right-aligned, AI left-aligned with Sparkles icon), typing
+  indicator, source chips, action buttons, suggested prompt chips. Five mocked
+  responses keyed to query keywords: start dates, reminder drafts, integration
+  failures, package drop-offs, unresponsive candidates.
+
+- **`AiProvider` + `useAiCopilot()`** — React context wrapping the app shell.
+  The global AI Copilot button in the header now calls `openCopilot()` from
+  context. Any component can open the panel with a pre-seeded prompt via
+  `openCopilot(prompt)`.
+
+- **Command Center updated** — `MorningBriefing` added above the filter bar;
+  "AI Recommendations" widget added in the third dashboard row showing top 3
+  super-admin recommendations as compact `RecommendationCard` items.
+
+- **Candidate 360 updated** — right context panel now shows `CandidateAiPanel`:
+  confidence dot, start-readiness progress bar (0–100), AI narrative summary,
+  risk-factor chips, next-best-action block, and any candidate-filtered
+  `RecommendationCard` items — replacing the generic placeholder.
+
 - **Consultants roster + Consultant 360** (§15, §38) at `/consultants` —
   lifecycle-aware roster (Active / Bench / Extension Pending / Offboarding /
   Converted / Former / Ineligible) with bill & pay rates, assignment, client,

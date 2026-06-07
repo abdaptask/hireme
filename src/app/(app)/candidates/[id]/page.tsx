@@ -35,6 +35,8 @@ import {
   type ReadinessDimension,
   type TimelineEvent,
 } from "@/lib/candidates";
+import { getCandidateAiSummary, getRecommendations } from "@/lib/ai";
+import { CandidateAiPanel } from "@/components/ai/candidate-ai-panel";
 import { InitiateOnboardingButton } from "@/app/(app)/candidates/[id]/initiate-button";
 import { cn } from "@/lib/utils";
 
@@ -132,6 +134,11 @@ export default async function CandidateRecordPage({
   const { id } = await params;
   const c: CandidateDetail | undefined = getCandidate(id);
   if (!c) notFound();
+
+  const aiSummary = getCandidateAiSummary(id);
+  const candidateRecommendations = getRecommendations().filter(
+    (r) => r.candidateId === id,
+  );
 
   const initials = c.name.split(" ").map((n) => n[0]).join("");
 
@@ -381,6 +388,12 @@ export default async function CandidateRecordPage({
 
           {/* Right context panel (§100.1) */}
           <aside className="flex flex-col gap-4">
+            {/* AI Summary & Recommendations (§105, §100.1) */}
+            <CandidateAiPanel
+              summary={aiSummary}
+              recommendations={candidateRecommendations}
+            />
+
             <div className="bg-card rounded-xl border p-4 shadow-xs">
               <h3 className="text-card-heading mb-2">Open exceptions</h3>
               {c.openExceptions.length === 0 ? (
