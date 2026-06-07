@@ -1,3 +1,8 @@
+/**
+ * Exception Control Tower — server component.
+ * Fetches real exceptions from Neon, merges with mock data for coverage.
+ * (CLAUDE.md §18, §104)
+ */
 import Link from "next/link";
 import type { Metadata } from "next";
 import {
@@ -11,29 +16,86 @@ import { PageContainer, PageHeader } from "@/components/page";
 import { StatTile } from "@/components/workspace/stat-tile";
 import { WidgetCard, BarList } from "@/components/dashboard/widgets";
 import { StatusBadge } from "@/components/status-badge";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
-  byCategory,
-  bySeverity,
-  exceptionStats,
+  EXCEPTIONS,
   SEVERITY_META,
-  sortedExceptions,
   STATUS_META,
+  type Exception,
 } from "@/lib/exceptions";
+import { getDbExceptions, dbExceptionStats } from "@/lib/db-exceptions";
 
+export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Exception Control Tower" };
 
-export default function ExceptionsPage() {
-  const stats = exceptionStats();
-  const rows = sortedExceptions();
-  const categories = byCategory();
-  const severities = bySeverity().filter((s) => s.value > 0);
+// ─────────────────────────────────────────────────────────
+// Helpers computed server-side
+// ─────────────────────────────────────────────────────────
+
+function computeByCategory(exceptions: Exception[]) {
+  const open = exceptions.filter((e) => e.status !== "resolved");
+  const counts = new Map<string, number>();
+  for (const e of open) counts.set(e.category, (counts.get(e.category) ?? 0) + 1);
+  return Array.from(counts.entries())
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+}
+
+function computeBySeverity(exceptions: Exception[]) {
+  const open = exceptions.filter((e) => e.status !== "resolved");
+  return [
+    { name: "Critical", value: open.filter((e) => e.severity === "critical").length, tone: "danger" as const },
+    { name: "High",     value: open.filter((e) => e.severity === "high").length,     tone: "danger" as const },
+    { name: "Medium",   value: open.filter((e) => e.severity === "medium").length,   tone: "warning" as const },
+    { name: "Low",      value: open.filter((e) => e.severity === "low").length,      tone: "neutral" as const },
+  ].filter((s) => s.value > 0);
+}
+
+function sortExceptions(exceptions: Exception[]) {
+  const rank: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+  return [...exceptions].sort((a, b) => {
+    const sevDiff = (rank[a.severity] ?? 4) - (rank[b.severity] ?? 4);
+    if (sevDiff !== 0) return sevDiff;
+    return b.ageDays - a.ageDays;
+  });
+}
+
+// ─────────────────────────────────────────────────────────
+// Page
+// ─────────────────────────────────────────────────────────
+
+export default async function ExceptionsPage() {
+  // 1. Fetch DB exceptions — graceful degradation
+  const dbExceptions = await getDbExceptions().catch((err) => {
+    console.error("[exceptions] DB fetch failed:", err?.message);
+    return [] as Exception[];
+  });
+
+  // 2. Merge: DB exceptions + mock exceptions whose IDs don't collide
+  //    DB exceptions are already mapped to the same Exception type, so they
+  //    appear inline with mock data.  DB rows are prepended so they sort first.
+  const merged = [...dbExceptions, ...EXCEPTIONS];
+  const rows = sortExceptions(merged);
+
+  const stats = dbExceptionStats(merged);
+  const categories = computeByCategory(merged);
+  const severities = computeBySeverity(merged);
+  const dbCount = dbExceptions.length;
 
   return (
     <PageContainer className="flex flex-col gap-6">
       <PageHeader
         title="Exception Control Tower"
         description="Every onboarding exception — owned, prioritized, and SLA-tracked (§18, §104)."
+        actions={
+          dbCount > 0 ? (
+            <Badge variant="outline" className="tabular-nums">
+              {rows.length} total
+              <span className="text-success ml-1">· {dbCount} live</span>
+            </Badge>
+          ) : undefined
+        }
       />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -60,7 +122,10 @@ export default function ExceptionsPage() {
           </span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left" style={{ fontSize: "var(--table-font)" }}>
+          <table
+            className="w-full border-collapse text-left"
+            style={{ fontSize: "var(--table-font)" }}
+          >
             <thead className="text-muted-foreground border-b">
               <tr>
                 <th className="px-3 py-2 font-medium">ID</th>
@@ -98,18 +163,31 @@ export default function ExceptionsPage() {
                     </span>
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">
-                    <Link href={`/candidates/${e.candidateId}`} className="hover:text-primary font-medium">
-                      {e.candidate}
-                    </Link>
+                    {e.candidateId ? (
+                      <Link
+                        href={`/candidates/${e.candidateId}`}
+                        className="hover:text-primary font-medium"
+                      >
+                        {e.candidate}
+                      </Link>
+                    ) : (
+                      <span className="font-medium">{e.candidate}</span>
+                    )}
                     <span className="text-metadata block">{e.client}</span>
                   </td>
-                  <td className="text-muted-foreground px-3 py-2 whitespace-nowrap">{e.owner}</td>
-                  <td className="text-muted-foreground px-3 py-2 tabular-nums">{e.ageDays}d</td>
+                  <td className="text-muted-foreground px-3 py-2 whitespace-nowrap">
+                    {e.owner}
+                  </td>
+                  <td className="text-muted-foreground px-3 py-2 tabular-nums">
+                    {e.ageDays}d
+                  </td>
                   <td className="px-3 py-2 whitespace-nowrap">
                     <span
                       className={cn(
                         "text-xs font-medium",
-                        e.sla.breached ? "text-danger-muted-foreground" : "text-muted-foreground",
+                        e.sla.breached
+                          ? "text-danger-muted-foreground"
+                          : "text-muted-foreground",
                       )}
                     >
                       {e.sla.label}
@@ -130,7 +208,10 @@ export default function ExceptionsPage() {
                         <CheckCircle2 className="size-3.5" /> Resolved
                       </span>
                     ) : (
-                      <StatusBadge tone={STATUS_META[e.status].tone} withDot={false}>
+                      <StatusBadge
+                        tone={STATUS_META[e.status].tone}
+                        withDot={false}
+                      >
                         {STATUS_META[e.status].label}
                       </StatusBadge>
                     )}
@@ -143,7 +224,7 @@ export default function ExceptionsPage() {
         <div className="text-muted-foreground flex items-center gap-1.5 border-t px-4 py-2 text-xs">
           <Sparkles className="text-ai size-3.5" />
           Each exception carries an AI-recommended next action; detail panel with
-          timeline, evidence & escalation chain (§104.2) arrives with the full module.
+          timeline, evidence &amp; escalation chain (§104.2) arrives with the full module.
         </div>
       </section>
     </PageContainer>
