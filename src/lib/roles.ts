@@ -23,6 +23,7 @@ export const ROLES: Role[] = [
   { id: "onboarder", label: "Onboarder", isAdmin: false },
   { id: "recruiter", label: "Recruiter", isAdmin: false },
   { id: "recruiting-manager", label: "Recruiting Manager", isAdmin: false },
+  { id: "team-lead", label: "Team Lead", isAdmin: false },
   { id: "account-manager", label: "Account Manager", isAdmin: false },
   { id: "candidate", label: "Candidate", isAdmin: false },
   { id: "vendor", label: "Vendor", isAdmin: false },
@@ -85,6 +86,15 @@ const DEFAULT_ALLOWED: Record<RoleId, string[] | "all"> = {
     "consultants",
     "onboarding",
     "exceptions",
+    "reports",
+  ],
+  "team-lead": [
+    "home",
+    "my-work",
+    "candidates",
+    "onboarding",
+    "exceptions",
+    "communications",
     "reports",
   ],
   "account-manager": [

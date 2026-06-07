@@ -102,6 +102,34 @@ export function stageBottlenecks(): { name: string; value: number }[] {
     .filter((s) => s.value > 0);
 }
 
+/* ----------------------------- Team Lead --------------------------------- */
+
+/** A team lead runs a pod of recruiters — a tactical subset of the team. */
+export const TEAM_LEAD = "Devon Hughes";
+export const POD_MEMBERS = ["Devon Hughes", "Lena Ortiz"];
+
+export function getPodCandidates(): CandidateSummary[] {
+  return CANDIDATES.filter((c) => POD_MEMBERS.includes(c.recruiter));
+}
+
+/** Workload for the pod's recruiters only. */
+export function podMemberWorkload(): OwnerWorkload[] {
+  return recruiterWorkload().filter((r) => POD_MEMBERS.includes(r.name));
+}
+
+/** Members whose share of at-risk work suggests a coaching conversation. */
+export function coachingFlags(): { name: string; reason: string }[] {
+  return podMemberWorkload()
+    .filter((m) => m.atRisk >= 1)
+    .map((m) => ({
+      name: m.name,
+      reason:
+        m.atRisk >= 2
+          ? `${m.atRisk} at-risk starts — review pipeline together`
+          : `${m.atRisk} at-risk start — check in`,
+    }));
+}
+
 /* ------------------------- Account Manager (§5.6) -------------------------- */
 
 export type ClientReadiness = {

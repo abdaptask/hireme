@@ -36,6 +36,7 @@ export type PersonaId =
   | "onboarder"
   | "recruiter"
   | "recruiting-manager"
+  | "team-lead"
   | "account-manager"
   | "vendor" // external subcontractor (C2C) — scoped portal access
   | "client"; // external end-client user — scoped portal access

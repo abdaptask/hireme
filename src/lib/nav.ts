@@ -29,6 +29,7 @@ import {
   TriangleAlert,
   UserCheck,
   Users,
+  UsersRound,
   Wallet,
   Workflow,
 } from "lucide-react";
@@ -113,6 +114,15 @@ export const PERSONAS: Persona[] = [
     icon: BarChart3,
     status: "live",
     description: "Monitor team workload, throughput, and bottlenecks.",
+  },
+  {
+    id: "team-lead",
+    label: "Team Lead",
+    workspace: "Pod Performance",
+    home: "/team-lead",
+    icon: UsersRound,
+    status: "live",
+    description: "Tactical view of your pod — daily priorities and coaching.",
   },
   {
     id: "account-manager",
