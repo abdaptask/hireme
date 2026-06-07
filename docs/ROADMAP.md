@@ -71,8 +71,18 @@ Back half — persistence — remaining:
 | Recruiting Manager workspace | §5.5 | ✅ UI (mock) |
 | Account Manager workspace | §5.6 | ✅ UI (mock) |
 | Universal "My Work" action center | §6 | ✅ UI (mock) |
+| Team Lead persona + Pod Performance workspace | §5 | ✅ UI (mock) |
 | Task engine + SLA countdowns (real) | §19 (subset) | ☐ |
 | Notification center, approvals center | §106, §108 | ☐ |
+
+### Reporting brought forward (from v0.7)
+
+| Area | Spec | Status |
+| --- | --- | --- |
+| Reports hub | §49 | ✅ UI (mock) |
+| Financial Performance report (historical + comparative) | §67.4 | ✅ UI (mock) |
+| Skills & Specialty / geographical strengths report | §49 | ✅ UI (mock) |
+| Remaining report catalog (operational, compliance, AI, …) | §49–§68 | ☐ |
 
 > All six persona workspaces + the three external portals are now live UI on
 > mock data. The remaining gap to a "real" product is **persistence** (Neon +

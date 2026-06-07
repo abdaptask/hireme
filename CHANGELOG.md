@@ -65,6 +65,19 @@ bump delivers a new vertical slice from the spec ([docs/ROADMAP.md](docs/ROADMAP
   preview lands you in it (satisfies acceptance criteria §47 #1–2 for the UI
   layer; data becomes real with persistence). Shared `ops-data` aggregation
   layer + `StatTile` component.
+- **Team Lead persona + Pod Performance workspace** (§5) — a 7th internal
+  persona between Recruiter and Recruiting Manager, with a pod-scoped tactical
+  view at `/team-lead`: pod stats, today's priorities, member workload, coaching
+  flags.
+- **Reports hub** (§49) at `/reports` — catalog of report categories.
+- **Financial Performance report** (§67.4) at `/reports/financial` — 12-month
+  historical trends (revenue, margin, cost-per-onboarding), month-over-month
+  comparison, by-client financials, cost breakdown, revenue-at-risk.
+- **Skills & Specialty report** (§49) at `/reports/specialty` — data-backed
+  "what's your specialty": top skills (volume, success, time-to-fill,
+  satisfaction), geographical strengths, a client-ready strengths summary, and
+  current pipeline tied to specialty areas.
+- **Theme bootstrap** now uses `next/script` `beforeInteractive` (clean console).
 
 > Decisions for the v0.2 persistence half: **Neon serverless Postgres** (via
 > Prisma) and **deferred real auth** (this dev role switcher stands in until a
