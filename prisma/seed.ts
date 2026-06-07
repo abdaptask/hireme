@@ -29,14 +29,40 @@ async function main() {
   console.log("🌱  Starting seed…");
 
   // ─────────────────────────────────────────────────────────
+  // CLEANUP — delete all rows in FK-safe order so the seed is
+  // re-runnable against a non-empty database.
+  // ─────────────────────────────────────────────────────────
+  console.log("  → Cleaning existing data");
+
+  await prisma.auditEvent.deleteMany({});
+  await prisma.communication.deleteMany({});
+  await prisma.training.deleteMany({});
+  await prisma.equipment.deleteMany({});
+  await prisma.screening.deleteMany({});
+  await prisma.document.deleteMany({});
+  await prisma.billingReadiness.deleteMany({});
+  await prisma.payrollReadiness.deleteMany({});
+  await prisma.exception.deleteMany({});
+  await prisma.packageDispatch.deleteMany({});
+  await prisma.packageApproval.deleteMany({});
+  await prisma.packageRule.deleteMany({});
+  await prisma.packageItem.deleteMany({});
+  await prisma.package.deleteMany({});
+  await prisma.clientPromise.deleteMany({});
+  await prisma.complianceRule.deleteMany({});
+  await prisma.clientContact.deleteMany({});
+  await prisma.assignment.deleteMany({});
+  await prisma.consultant.deleteMany({});
+  await prisma.candidate.deleteMany({});
+  await prisma.client.deleteMany({});
+
+  // ─────────────────────────────────────────────────────────
   // CLIENTS
   // ─────────────────────────────────────────────────────────
   console.log("  → Clients");
 
-  const meridian = await prisma.client.upsert({
-    where: { name: "Meridian Health" },
-    update: {},
-    create: {
+  const meridian = await prisma.client.create({
+    data: {
       name: "Meridian Health",
       industry: "Healthcare",
       hq: "Nashville, TN",
@@ -77,10 +103,8 @@ async function main() {
     },
   });
 
-  const apexDyn = await prisma.client.upsert({
-    where: { name: "Apex Dynamics" },
-    update: {},
-    create: {
+  const apexDyn = await prisma.client.create({
+    data: {
       name: "Apex Dynamics",
       industry: "Technology",
       hq: "Austin, TX",
@@ -120,10 +144,8 @@ async function main() {
     },
   });
 
-  const globalFin = await prisma.client.upsert({
-    where: { name: "Global Finance Corp" },
-    update: {},
-    create: {
+  const globalFin = await prisma.client.create({
+    data: {
       name: "Global Finance Corp",
       industry: "Finance",
       hq: "New York, NY",
@@ -160,10 +182,8 @@ async function main() {
     },
   });
 
-  await prisma.client.upsert({
-    where: { name: "Skyline Retail Group" },
-    update: {},
-    create: {
+  await prisma.client.create({
+    data: {
       name: "Skyline Retail Group",
       industry: "Retail",
       hq: "Chicago, IL",
@@ -190,14 +210,11 @@ async function main() {
           { label: "Retail Code of Conduct", category: "document", required: true },
         ],
       },
-      promises: { create: [] },
     },
   });
 
-  await prisma.client.upsert({
-    where: { name: "NovaTech Solutions" },
-    update: {},
-    create: {
+  await prisma.client.create({
+    data: {
       name: "NovaTech Solutions",
       industry: "Technology",
       hq: "Seattle, WA",
@@ -225,7 +242,6 @@ async function main() {
           { label: "IP Agreement", category: "document", required: true },
         ],
       },
-      promises: { create: [] },
     },
   });
 
@@ -372,22 +388,16 @@ async function main() {
   ];
 
   for (const c of candidateSeed) {
-    await prisma.candidate.upsert({
-      where: { email: c.email },
-      update: {},
-      create: c,
-    });
+    await prisma.candidate.create({ data: c });
   }
 
   // ─────────────────────────────────────────────────────────
-  // PACKAGES (representative — pull from packages mock)
+  // PACKAGES
   // ─────────────────────────────────────────────────────────
   console.log("  → Packages");
 
-  const pkg1 = await prisma.package.upsert({
-    where: { id: "pkg-meridian-nursing-001" },
-    update: {},
-    create: {
+  const pkg1 = await prisma.package.create({
+    data: {
       id: "pkg-meridian-nursing-001",
       name: "Meridian Health — Nursing Staff W-2",
       version: "2.1",
@@ -440,10 +450,8 @@ async function main() {
     },
   });
 
-  await prisma.package.upsert({
-    where: { id: "pkg-apex-engineering-001" },
-    update: {},
-    create: {
+  await prisma.package.create({
+    data: {
       id: "pkg-apex-engineering-001",
       name: "Apex Dynamics — Engineering C2C",
       version: "1.3",
@@ -491,10 +499,8 @@ async function main() {
     },
   });
 
-  await prisma.package.upsert({
-    where: { id: "pkg-gfc-finance-001" },
-    update: {},
-    create: {
+  await prisma.package.create({
+    data: {
       id: "pkg-gfc-finance-001",
       name: "Global Finance Corp — Risk Analytics W-2",
       version: "1.0",
@@ -534,12 +540,11 @@ async function main() {
           { approver: "Legal Review", role: "Legal", status: "pending" },
         ],
       },
-      dispatches: { create: [] },
     },
   });
 
   // ─────────────────────────────────────────────────────────
-  // DOCUMENTS (for Grace Okafor — most complete candidate)
+  // DOCUMENTS — Grace Okafor (Document Review, 82%)
   // ─────────────────────────────────────────────────────────
   console.log("  → Documents");
 
@@ -560,6 +565,53 @@ async function main() {
         data: { candidateId: graceCandidate.id, ...doc },
       });
     }
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // DOCUMENTS — Lena Park (Day 1 Prep, 91%) — all approved
+  // ─────────────────────────────────────────────────────────
+  const lenaPark = await prisma.candidate.findUnique({ where: { email: "lena.park@example.com" } });
+  if (lenaPark) {
+    await prisma.document.create({ data: { candidateId: lenaPark.id, name: "Government-issued ID (Driver's License)", category: "identity", status: "APPROVED", uploadedAt: new Date("2026-05-26"), reviewedAt: new Date("2026-05-27"), reviewedBy: "Carlos Rivera", aiScore: 98 } });
+    await prisma.document.create({ data: { candidateId: lenaPark.id, name: "Social Security Card", category: "identity", status: "APPROVED", uploadedAt: new Date("2026-05-26"), reviewedAt: new Date("2026-05-27"), reviewedBy: "Carlos Rivera", aiScore: 97 } });
+    await prisma.document.create({ data: { candidateId: lenaPark.id, name: "I-9 Form", category: "authorization", status: "APPROVED", uploadedAt: new Date("2026-05-27"), reviewedAt: new Date("2026-05-28"), reviewedBy: "Carlos Rivera", aiScore: 99 } });
+    await prisma.document.create({ data: { candidateId: lenaPark.id, name: "Federal W-4", category: "tax", status: "APPROVED", uploadedAt: new Date("2026-05-27"), reviewedAt: new Date("2026-05-28"), reviewedBy: "Carlos Rivera", aiScore: 100 } });
+    await prisma.document.create({ data: { candidateId: lenaPark.id, name: "Illinois State Tax Form (IL-W-4)", category: "tax", status: "APPROVED", uploadedAt: new Date("2026-05-27"), reviewedAt: new Date("2026-05-28"), reviewedBy: "Carlos Rivera", aiScore: 100 } });
+    await prisma.document.create({ data: { candidateId: lenaPark.id, name: "Direct Deposit Authorization", category: "payroll", status: "APPROVED", uploadedAt: new Date("2026-05-28"), reviewedAt: new Date("2026-05-29"), reviewedBy: "Carlos Rivera", aiScore: 99 } });
+    await prisma.document.create({ data: { candidateId: lenaPark.id, name: "Skyline Retail Group NDA", category: "client", status: "APPROVED", uploadedAt: new Date("2026-05-29"), reviewedAt: new Date("2026-05-30"), reviewedBy: "Carlos Rivera", aiScore: 96 } });
+    await prisma.document.create({ data: { candidateId: lenaPark.id, name: "SAP Retail Training Certificate", category: "certification", status: "APPROVED", uploadedAt: new Date("2026-06-02"), reviewedAt: new Date("2026-06-03"), reviewedBy: "Carlos Rivera", aiScore: 95 } });
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // DOCUMENTS — Marcus Webb (Tax & Payroll, 45%, C2C)
+  // ─────────────────────────────────────────────────────────
+  const marcusWebb = await prisma.candidate.findUnique({ where: { email: "marcus.webb@example.com" } });
+  if (marcusWebb) {
+    await prisma.document.create({ data: { candidateId: marcusWebb.id, name: "I-9 Form", category: "authorization", status: "APPROVED", uploadedAt: new Date("2026-06-02"), reviewedAt: new Date("2026-06-03"), reviewedBy: "Aisha Ndiaye", aiScore: 96 } });
+    await prisma.document.create({ data: { candidateId: marcusWebb.id, name: "Federal W-9 (TechBridge LLC)", category: "tax", status: "REJECTED", uploadedAt: new Date("2026-06-03"), reviewedAt: new Date("2026-06-04"), reviewedBy: "Aisha Ndiaye", aiScore: 61, rejectedReason: "Entity name on W-9 does not match vendor agreement — shows 'TechBridge' instead of 'TechBridge LLC'. Please resubmit with the correct legal entity name." } });
+    await prisma.document.create({ data: { candidateId: marcusWebb.id, name: "New York State Tax IT-2104", category: "tax", status: "PENDING", uploadedAt: new Date("2026-06-05") } });
+    await prisma.document.create({ data: { candidateId: marcusWebb.id, name: "GFC Confidentiality Agreement", category: "client", status: "PENDING", uploadedAt: new Date("2026-06-05") } });
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // DOCUMENTS — Raj Patel (Client Requirements, 55%, C2C)
+  // ─────────────────────────────────────────────────────────
+  const rajPatel = await prisma.candidate.findUnique({ where: { email: "raj.patel@example.com" } });
+  if (rajPatel) {
+    await prisma.document.create({ data: { candidateId: rajPatel.id, name: "I-9 Form", category: "authorization", status: "APPROVED", uploadedAt: new Date("2026-06-01"), reviewedAt: new Date("2026-06-02"), reviewedBy: "Aisha Ndiaye", aiScore: 98 } });
+    await prisma.document.create({ data: { candidateId: rajPatel.id, name: "Federal W-9 (CodeBridge Partners)", category: "tax", status: "APPROVED", uploadedAt: new Date("2026-06-01"), reviewedAt: new Date("2026-06-02"), reviewedBy: "Aisha Ndiaye", aiScore: 94 } });
+    await prisma.document.create({ data: { candidateId: rajPatel.id, name: "Apex Dynamics NDA", category: "client", status: "AI_REVIEW", uploadedAt: new Date("2026-06-04"), aiScore: 82 } });
+    await prisma.document.create({ data: { candidateId: rajPatel.id, name: "Apex Security Policy Acknowledgment", category: "client", status: "PENDING" } });
+    await prisma.document.create({ data: { candidateId: rajPatel.id, name: "Acceptable Use Policy", category: "client", status: "PENDING" } });
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // DOCUMENTS — Aisha Bello (Profile Setup, 22%)
+  // ─────────────────────────────────────────────────────────
+  const aishaBello = await prisma.candidate.findUnique({ where: { email: "aisha.bello@example.com" } });
+  if (aishaBello) {
+    await prisma.document.create({ data: { candidateId: aishaBello.id, name: "Passport (US)", category: "identity", status: "APPROVED", uploadedAt: new Date("2026-06-07"), reviewedAt: new Date("2026-06-07"), reviewedBy: "Aisha Ndiaye", aiScore: 99 } });
+    await prisma.document.create({ data: { candidateId: aishaBello.id, name: "I-9 Form", category: "authorization", status: "PENDING" } });
   }
 
   // ─────────────────────────────────────────────────────────
@@ -599,6 +651,58 @@ async function main() {
     });
   }
 
+  // Lena Park — completed clear (Day 1 Prep, essentially done)
+  if (lenaPark) {
+    await prisma.screening.create({
+      data: {
+        candidateId: lenaPark.id,
+        vendor: "Sterling",
+        packageType: "Standard Criminal",
+        status: "CLEAR",
+        orderedAt: new Date("2026-06-01"),
+        consentedAt: new Date("2026-06-01"),
+        completedAt: new Date("2026-06-06"),
+        estimatedCompletion: new Date("2026-06-07"),
+        cost: 79.00,
+        notes: "All checks passed. No adverse findings.",
+      },
+    });
+  }
+
+  // Marcus Webb — ordered, not yet consented
+  if (marcusWebb) {
+    await prisma.screening.create({
+      data: {
+        candidateId: marcusWebb.id,
+        vendor: "HireRight",
+        packageType: "Enhanced 7-Year + Credit Check",
+        status: "ORDERED",
+        orderedAt: new Date("2026-06-05"),
+        estimatedCompletion: new Date("2026-06-13"),
+        cost: 195.00,
+        notes: "Candidate has not yet accepted screening invitation. Follow-up required.",
+      },
+    });
+  }
+
+  // Raj Patel — in progress, consented
+  if (rajPatel) {
+    await prisma.screening.create({
+      data: {
+        candidateId: rajPatel.id,
+        vendor: "Sterling",
+        packageType: "Standard Criminal",
+        status: "IN_PROGRESS",
+        orderedAt: new Date("2026-06-03"),
+        consentedAt: new Date("2026-06-04"),
+        estimatedCompletion: new Date("2026-06-10"),
+        cost: 89.00,
+      },
+    });
+  }
+
+  // Aisha Bello — no screening yet (Profile Setup stage)
+
   // ─────────────────────────────────────────────────────────
   // EQUIPMENT
   // ─────────────────────────────────────────────────────────
@@ -623,6 +727,31 @@ async function main() {
       },
     });
   }
+
+  // Lena Park — laptop fully ready, all IT provisioned
+  if (lenaPark) {
+    await prisma.equipment.create({
+      data: {
+        candidateId: lenaPark.id,
+        assetType: "laptop",
+        label: "Dell Latitude 15",
+        status: "READY",
+        trackingNumber: "7489234710000192",
+        carrier: "FedEx",
+        shippedAt: new Date("2026-06-04"),
+        estimatedDelivery: new Date("2026-06-07"),
+        deliveredAt: new Date("2026-06-07"),
+        emailProvisioned: true,
+        vpnProvisioned: true,
+        clientCredentials: true,
+        deviceEnrolled: true,
+        returnRequired: false,
+        notes: "Device confirmed received and enrolled by candidate on Jun 7.",
+      },
+    });
+  }
+
+  // Marcus Webb, Raj Patel, Aisha Bello — no equipment yet
 
   // ─────────────────────────────────────────────────────────
   // EXCEPTIONS
@@ -663,16 +792,62 @@ async function main() {
     });
   }
 
+  if (marcusWebb) {
+    await prisma.exception.create({
+      data: {
+        candidateId: marcusWebb.id,
+        category: "Missing Document",
+        severity: "HIGH",
+        status: "OPEN",
+        title: "W-9 rejected — incorrect entity name",
+        description: "W-9 submitted with entity name 'TechBridge' instead of the registered legal entity 'TechBridge LLC'. Candidate must resubmit corrected form before payroll can be configured.",
+        owner: "Aisha Ndiaye",
+        resolutionDeadline: new Date("2026-06-09"),
+        startDateImpact: true,
+        internalNote: "Recruiter Mia Thompson notified. Candidate acknowledged via SMS on Jun 5.",
+      },
+    });
+    await prisma.exception.create({
+      data: {
+        candidateId: marcusWebb.id,
+        category: "Screening Not Started",
+        severity: "MEDIUM",
+        status: "OPEN",
+        title: "Screening invitation not accepted — start date June 16",
+        description: "HireRight invitation was sent on June 5 but candidate has not consented. Enhanced 7-year check typically takes 7–10 business days. Risk of missing start date is increasing.",
+        owner: "Aisha Ndiaye",
+        resolutionDeadline: new Date("2026-06-07"),
+        startDateImpact: true,
+        internalNote: "Nudge sent via SMS Jun 6. Escalating to recruiter if no response by Jun 7 EOD.",
+      },
+    });
+  }
+
+  if (rajPatel) {
+    await prisma.exception.create({
+      data: {
+        candidateId: rajPatel.id,
+        category: "Document Pending Review",
+        severity: "MEDIUM",
+        status: "IN_PROGRESS",
+        title: "Apex NDA pending — client requirements outstanding",
+        description: "Security Policy Acknowledgment and Acceptable Use Policy are outstanding. Start date is June 10 — only 3 days away.",
+        owner: "Aisha Ndiaye",
+        resolutionDeadline: new Date("2026-06-09"),
+        startDateImpact: true,
+        internalNote: "AI nudge sent Jun 6. Account Manager Priya Shah alerted.",
+      },
+    });
+  }
+
   // ─────────────────────────────────────────────────────────
   // PAYROLL & BILLING READINESS
   // ─────────────────────────────────────────────────────────
   console.log("  → Readiness Gates");
 
   if (graceCandidate) {
-    await prisma.payrollReadiness.upsert({
-      where: { candidateId: graceCandidate.id },
-      update: {},
-      create: {
+    await prisma.payrollReadiness.create({
+      data: {
         candidateId: graceCandidate.id,
         status: "READY",
         classification: true, payRate: true, overtimeRules: true,
@@ -681,10 +856,8 @@ async function main() {
         payrollEntity: true, startDateSet: true,
       },
     });
-    await prisma.billingReadiness.upsert({
-      where: { candidateId: graceCandidate.id },
-      update: {},
-      create: {
+    await prisma.billingReadiness.create({
+      data: {
         candidateId: graceCandidate.id,
         status: "READY",
         billRate: true, markup: true, purchaseOrder: true,
@@ -697,10 +870,8 @@ async function main() {
   }
 
   if (jamesCandidate) {
-    await prisma.payrollReadiness.upsert({
-      where: { candidateId: jamesCandidate.id },
-      update: {},
-      create: {
+    await prisma.payrollReadiness.create({
+      data: {
         candidateId: jamesCandidate.id,
         status: "NOT_READY",
         classification: true, payRate: true, overtimeRules: true,
@@ -709,11 +880,106 @@ async function main() {
         payrollEntity: true, startDateSet: true,
       },
     });
-    await prisma.billingReadiness.upsert({
-      where: { candidateId: jamesCandidate.id },
-      update: {},
-      create: {
+    await prisma.billingReadiness.create({
+      data: {
         candidateId: jamesCandidate.id,
+        status: "NOT_READY",
+        billRate: true, markup: true, purchaseOrder: false,
+        costCenter: false, clientWorkerId: false, vmsId: false,
+        invoiceFrequency: true, timesheetMethod: true, expensePolicy: true,
+        billingEntity: true, approvedStartDate: false,
+      },
+    });
+  }
+
+  // Lena Park — fully ready (Day 1 Prep, 91%)
+  if (lenaPark) {
+    await prisma.payrollReadiness.create({
+      data: {
+        candidateId: lenaPark.id,
+        status: "READY",
+        classification: true, payRate: true, overtimeRules: true,
+        taxJurisdiction: true, directDeposit: true, w4: true,
+        stateTax: true, i9: true, benefitsEligibility: true,
+        payrollEntity: true, startDateSet: true,
+      },
+    });
+    await prisma.billingReadiness.create({
+      data: {
+        candidateId: lenaPark.id,
+        status: "READY",
+        billRate: true, markup: true, purchaseOrder: true,
+        costCenter: true, clientWorkerId: true, vmsId: true,
+        invoiceFrequency: true, timesheetMethod: true, expensePolicy: true,
+        billingEntity: true, approvedStartDate: true,
+        clientWorkerId2: "SRG-00892",
+      },
+    });
+  }
+
+  // Marcus Webb — not ready (W-9 rejected, C2C setup blocked)
+  if (marcusWebb) {
+    await prisma.payrollReadiness.create({
+      data: {
+        candidateId: marcusWebb.id,
+        status: "NOT_READY",
+        classification: true, payRate: true, overtimeRules: true,
+        taxJurisdiction: true, directDeposit: false, w4: false,
+        stateTax: false, i9: true, benefitsEligibility: false,
+        payrollEntity: true, startDateSet: true,
+      },
+    });
+    await prisma.billingReadiness.create({
+      data: {
+        candidateId: marcusWebb.id,
+        status: "NOT_READY",
+        billRate: true, markup: true, purchaseOrder: false,
+        costCenter: false, clientWorkerId: false, vmsId: false,
+        invoiceFrequency: true, timesheetMethod: true, expensePolicy: true,
+        billingEntity: true, approvedStartDate: false,
+      },
+    });
+  }
+
+  // Raj Patel — partial (C2C, client docs outstanding, screening in progress)
+  if (rajPatel) {
+    await prisma.payrollReadiness.create({
+      data: {
+        candidateId: rajPatel.id,
+        status: "PENDING",
+        classification: true, payRate: true, overtimeRules: true,
+        taxJurisdiction: true, directDeposit: false, w4: false,
+        stateTax: false, i9: true, benefitsEligibility: false,
+        payrollEntity: true, startDateSet: true,
+      },
+    });
+    await prisma.billingReadiness.create({
+      data: {
+        candidateId: rajPatel.id,
+        status: "NOT_READY",
+        billRate: true, markup: true, purchaseOrder: false,
+        costCenter: true, clientWorkerId: false, vmsId: false,
+        invoiceFrequency: true, timesheetMethod: true, expensePolicy: true,
+        billingEntity: true, approvedStartDate: false,
+      },
+    });
+  }
+
+  // Aisha Bello — not ready (just started, Profile Setup)
+  if (aishaBello) {
+    await prisma.payrollReadiness.create({
+      data: {
+        candidateId: aishaBello.id,
+        status: "NOT_READY",
+        classification: true, payRate: false, overtimeRules: false,
+        taxJurisdiction: false, directDeposit: false, w4: false,
+        stateTax: false, i9: false, benefitsEligibility: false,
+        payrollEntity: false, startDateSet: true,
+      },
+    });
+    await prisma.billingReadiness.create({
+      data: {
+        candidateId: aishaBello.id,
         status: "NOT_READY",
         billRate: true, markup: true, purchaseOrder: false,
         costCenter: false, clientWorkerId: false, vmsId: false,
@@ -776,6 +1042,104 @@ async function main() {
     });
   }
 
+  // Lena Park — both completed (Day 1 Prep)
+  if (lenaPark) {
+    await prisma.training.createMany({
+      data: [
+        {
+          candidateId: lenaPark.id,
+          title: "SAP Retail System Orientation",
+          category: "systems",
+          status: "COMPLETED",
+          score: 91,
+          completedAt: new Date("2026-06-04"),
+          required: true,
+        },
+        {
+          candidateId: lenaPark.id,
+          title: "Loss Prevention Training",
+          category: "compliance",
+          status: "COMPLETED",
+          score: 89,
+          completedAt: new Date("2026-06-05"),
+          required: true,
+        },
+      ],
+    });
+  }
+
+  // Marcus Webb — both assigned (Tax & Payroll stage, not yet at training)
+  if (marcusWebb) {
+    await prisma.training.createMany({
+      data: [
+        {
+          candidateId: marcusWebb.id,
+          title: "SOX Compliance Training",
+          category: "compliance",
+          status: "ASSIGNED",
+          dueDate: new Date("2026-06-13"),
+          required: true,
+        },
+        {
+          candidateId: marcusWebb.id,
+          title: "GFC Security Orientation",
+          category: "security",
+          status: "ASSIGNED",
+          dueDate: new Date("2026-06-13"),
+          required: true,
+        },
+      ],
+    });
+  }
+
+  // Raj Patel — one started, one assigned
+  if (rajPatel) {
+    await prisma.training.createMany({
+      data: [
+        {
+          candidateId: rajPatel.id,
+          title: "Security Awareness Training",
+          category: "security",
+          status: "STARTED",
+          dueDate: new Date("2026-06-09"),
+          required: true,
+        },
+        {
+          candidateId: rajPatel.id,
+          title: "Apex Dynamics Acceptable Use Policy Acknowledgment",
+          category: "compliance",
+          status: "ASSIGNED",
+          dueDate: new Date("2026-06-09"),
+          required: true,
+        },
+      ],
+    });
+  }
+
+  // Aisha Bello — both assigned (just started onboarding)
+  if (aishaBello) {
+    await prisma.training.createMany({
+      data: [
+        {
+          candidateId: aishaBello.id,
+          title: "Security Fundamentals",
+          category: "security",
+          status: "ASSIGNED",
+          dueDate: new Date("2026-06-20"),
+          required: true,
+        },
+        {
+          candidateId: aishaBello.id,
+          title: "AWS Acceptable Use Policy Training",
+          category: "compliance",
+          status: "ASSIGNED",
+          dueDate: new Date("2026-06-20"),
+          required: true,
+        },
+      ],
+    });
+  }
+
   // ─────────────────────────────────────────────────────────
   // COMMUNICATIONS
   // ─────────────────────────────────────────────────────────
@@ -809,13 +1173,170 @@ async function main() {
     });
   }
 
+  // Lena Park — 4 communications (package sent, screening clear, equipment delivered, day 1 instructions)
+  if (lenaPark) {
+    await prisma.communication.createMany({
+      data: [
+        {
+          candidateId: lenaPark.id,
+          channel: "EMAIL",
+          direction: "outbound",
+          subject: "Your Skyline Retail Group onboarding package is ready",
+          body: "Hi Lena, your onboarding package has been dispatched. Please log in to the portal to complete your tasks.",
+          status: "opened",
+          sentAt: new Date("2026-05-28T09:00:00"),
+          openedAt: new Date("2026-05-28T09:45:00"),
+          sentBy: "system",
+          nudgeLevel: 0,
+        },
+        {
+          candidateId: lenaPark.id,
+          channel: "EMAIL",
+          direction: "outbound",
+          subject: "Background screening complete — all clear!",
+          body: "Great news, Lena! Your background screening with Sterling has been completed with no adverse findings. You're one step closer to your start date.",
+          status: "opened",
+          sentAt: new Date("2026-06-06T10:15:00"),
+          openedAt: new Date("2026-06-06T11:02:00"),
+          sentBy: "system",
+          nudgeLevel: 0,
+        },
+        {
+          candidateId: lenaPark.id,
+          channel: "SMS",
+          direction: "outbound",
+          body: "Hi Lena! Your Dell Latitude has been delivered. Please confirm receipt in the portal and complete device enrollment. Your start date is June 8. - HireMe",
+          status: "delivered",
+          sentAt: new Date("2026-06-07T08:30:00"),
+          sentBy: "system",
+          nudgeLevel: 0,
+        },
+        {
+          candidateId: lenaPark.id,
+          channel: "EMAIL",
+          direction: "outbound",
+          subject: "Day 1 Instructions — Skyline Retail Group, June 8",
+          body: "Hi Lena, you're almost there! Here are your Day 1 instructions for your start at Skyline Retail Group. Your manager James Ford will meet you at the Merchandise Center lobby at 9:00 AM. Your laptop is ready, your VPN is configured, and your Skyline credentials are in the portal.",
+          status: "opened",
+          sentAt: new Date("2026-06-07T14:00:00"),
+          openedAt: new Date("2026-06-07T14:38:00"),
+          sentBy: "Carlos Rivera",
+          nudgeLevel: 0,
+        },
+      ],
+    });
+  }
+
+  // Marcus Webb — 3 messages (package sent, W-9 rejection notice, nudge reminder)
+  if (marcusWebb) {
+    await prisma.communication.createMany({
+      data: [
+        {
+          candidateId: marcusWebb.id,
+          channel: "EMAIL",
+          direction: "outbound",
+          subject: "Your Global Finance Corp onboarding package is ready",
+          body: "Hi Marcus, your onboarding package has been prepared. Please log in to the portal to begin completing your required documents.",
+          status: "opened",
+          sentAt: new Date("2026-06-03T09:00:00"),
+          openedAt: new Date("2026-06-03T10:17:00"),
+          sentBy: "system",
+          nudgeLevel: 0,
+        },
+        {
+          candidateId: marcusWebb.id,
+          channel: "EMAIL",
+          direction: "outbound",
+          subject: "Action Required: W-9 correction needed",
+          body: "Hi Marcus, your W-9 form was rejected because the entity name 'TechBridge' does not match the registered vendor name 'TechBridge LLC'. Please resubmit a corrected W-9 with the exact legal entity name. This is required before payroll can be configured.",
+          status: "opened",
+          sentAt: new Date("2026-06-04T11:30:00"),
+          openedAt: new Date("2026-06-05T08:45:00"),
+          sentBy: "Aisha Ndiaye",
+          nudgeLevel: 1,
+        },
+        {
+          candidateId: marcusWebb.id,
+          channel: "SMS",
+          direction: "outbound",
+          body: "Hi Marcus, this is a reminder to accept your HireRight background screening invitation and resubmit your corrected W-9. Your start date is June 16. Please act today. - HireMe",
+          status: "delivered",
+          sentAt: new Date("2026-06-06T09:00:00"),
+          sentBy: "system",
+          nudgeLevel: 2,
+        },
+      ],
+    });
+  }
+
+  // Raj Patel — 2 messages (package sent, nudge for missing client docs)
+  if (rajPatel) {
+    await prisma.communication.createMany({
+      data: [
+        {
+          candidateId: rajPatel.id,
+          channel: "EMAIL",
+          direction: "outbound",
+          subject: "Your Apex Dynamics onboarding package is ready",
+          body: "Hi Raj, your onboarding package is ready. Please log in to the portal to complete your remaining client requirements. Your start date is June 10.",
+          status: "opened",
+          sentAt: new Date("2026-06-01T09:30:00"),
+          openedAt: new Date("2026-06-01T10:05:00"),
+          sentBy: "system",
+          nudgeLevel: 0,
+        },
+        {
+          candidateId: rajPatel.id,
+          channel: "SMS",
+          direction: "outbound",
+          body: "Hi Raj, you have 2 outstanding client documents due before your June 10 start: Security Policy Acknowledgment and Acceptable Use Policy. Please complete them today. - HireMe",
+          status: "delivered",
+          sentAt: new Date("2026-06-06T09:00:00"),
+          sentBy: "system",
+          nudgeLevel: 1,
+        },
+      ],
+    });
+  }
+
+  // Aisha Bello — 2 messages (welcome email, portal activation SMS)
+  if (aishaBello) {
+    await prisma.communication.createMany({
+      data: [
+        {
+          candidateId: aishaBello.id,
+          channel: "EMAIL",
+          direction: "outbound",
+          subject: "Welcome to NovaTech Solutions — Let's get you started!",
+          body: "Hi Aisha, congratulations on your offer acceptance! We're excited to have you join the NovaTech Solutions team. This email contains your onboarding portal link and instructions for completing your profile. Your start date is June 23 — you have plenty of time, so let's get everything done right.",
+          status: "opened",
+          sentAt: new Date("2026-06-07T08:00:00"),
+          openedAt: new Date("2026-06-07T08:22:00"),
+          sentBy: "system",
+          nudgeLevel: 0,
+        },
+        {
+          candidateId: aishaBello.id,
+          channel: "SMS",
+          direction: "outbound",
+          body: "Hi Aisha! Your HireMe onboarding portal is now active. Log in at hireme.app/portal to begin your profile setup. Questions? Reply to this message. - HireMe",
+          status: "delivered",
+          sentAt: new Date("2026-06-07T08:05:00"),
+          sentBy: "system",
+          nudgeLevel: 0,
+        },
+      ],
+    });
+  }
+
   // ─────────────────────────────────────────────────────────
-  // AUDIT EVENTS (sample)
+  // AUDIT EVENTS
   // ─────────────────────────────────────────────────────────
   console.log("  → Audit Events");
 
   const pkg1Record = await prisma.package.findUnique({ where: { id: "pkg-meridian-nursing-001" } });
 
+  // Core audit events (packages and existing candidates)
   await prisma.auditEvent.createMany({
     data: [
       {
@@ -867,6 +1388,149 @@ async function main() {
     ],
   });
 
+  // Audit events — Lena Park (package dispatched, screening complete, equipment delivered)
+  if (lenaPark) {
+    await prisma.auditEvent.createMany({
+      data: [
+        {
+          action: "UPDATED",
+          entityType: "Package",
+          entityLabel: "Skyline Retail Group — W-2 Onboarding Package",
+          actor: "system",
+          actorRole: "system",
+          candidateId: lenaPark.id,
+          aiInvolved: false,
+          sourceSystem: "hireme",
+          newValue: "status: dispatched via portal + email",
+          reason: "Package approved and dispatched to candidate on May 28",
+        },
+        {
+          action: "UPDATED",
+          entityType: "Screening",
+          entityLabel: "Sterling — Standard Criminal (Lena Park)",
+          actor: "Sterling",
+          actorRole: "integration",
+          candidateId: lenaPark.id,
+          aiInvolved: false,
+          sourceSystem: "screening-vendor",
+          previousValue: "status: IN_PROGRESS",
+          newValue: "status: CLEAR — no adverse findings",
+          reason: "All checks completed; candidate cleared for start",
+        },
+        {
+          action: "UPDATED",
+          entityType: "Equipment",
+          entityLabel: "Dell Latitude 15 — Lena Park",
+          actor: "system",
+          actorRole: "system",
+          candidateId: lenaPark.id,
+          aiInvolved: false,
+          sourceSystem: "shipping-integration",
+          previousValue: "status: SHIPPED",
+          newValue: "status: DELIVERED — confirmed Jun 7",
+          reason: "FedEx delivery confirmed; device enrollment completed",
+        },
+      ],
+    });
+  }
+
+  // Audit events — Marcus Webb (W-9 rejected, screening ordered)
+  if (marcusWebb) {
+    await prisma.auditEvent.createMany({
+      data: [
+        {
+          action: "REJECTED",
+          entityType: "Document",
+          entityLabel: "Federal W-9 — Marcus Webb (TechBridge LLC)",
+          actor: "Aisha Ndiaye",
+          actorRole: "onboarder",
+          candidateId: marcusWebb.id,
+          aiInvolved: true,
+          sourceSystem: "document-intelligence",
+          previousValue: "status: AI_REVIEW",
+          newValue: "status: REJECTED",
+          reason: "Entity name 'TechBridge' does not match registered vendor 'TechBridge LLC'. AI flagged mismatch with confidence 0.94.",
+        },
+        {
+          action: "INTEGRATION_EVENT",
+          entityType: "Screening",
+          entityLabel: "HireRight — Enhanced 7-Year + Credit Check (Marcus Webb)",
+          actor: "system",
+          actorRole: "system",
+          candidateId: marcusWebb.id,
+          aiInvolved: false,
+          sourceSystem: "hireright-integration",
+          newValue: "Screening order placed. Invitation sent to candidate. Status: ORDERED",
+          reason: "Screening automatically triggered upon I-9 approval",
+        },
+      ],
+    });
+  }
+
+  // Audit events — Raj Patel (package sent, screening ordered)
+  if (rajPatel) {
+    await prisma.auditEvent.createMany({
+      data: [
+        {
+          action: "UPDATED",
+          entityType: "Package",
+          entityLabel: "Apex Dynamics — Engineering C2C (Raj Patel)",
+          actor: "system",
+          actorRole: "system",
+          candidateId: rajPatel.id,
+          aiInvolved: false,
+          sourceSystem: "hireme",
+          newValue: "status: dispatched via portal on Jun 1",
+          reason: "Package approved and dispatched; candidate notified",
+        },
+        {
+          action: "INTEGRATION_EVENT",
+          entityType: "Screening",
+          entityLabel: "Sterling — Standard Criminal (Raj Patel)",
+          actor: "system",
+          actorRole: "system",
+          candidateId: rajPatel.id,
+          aiInvolved: false,
+          sourceSystem: "sterling-integration",
+          newValue: "Screening in progress. Consented Jun 4. Est. completion Jun 10.",
+          reason: "Screening triggered upon I-9 and W-9 approval",
+        },
+      ],
+    });
+  }
+
+  // Audit events — Aisha Bello (candidate created, package generated)
+  if (aishaBello) {
+    await prisma.auditEvent.createMany({
+      data: [
+        {
+          action: "CREATED",
+          entityType: "Candidate",
+          entityLabel: "Aisha Bello",
+          actor: "Derek Okafor",
+          actorRole: "recruiter",
+          candidateId: aishaBello.id,
+          aiInvolved: false,
+          sourceSystem: "hireme",
+          newValue: "status: OFFER_ACCEPTED — start date Jun 23",
+          reason: "Offer accepted on Jun 7. Profile created by recruiter.",
+        },
+        {
+          action: "AI_ACTION",
+          entityType: "Package",
+          entityLabel: "NovaTech Solutions — W-2 Onboarding Package (Aisha Bello)",
+          actor: "AI Copilot",
+          actorRole: "system",
+          candidateId: aishaBello.id,
+          aiInvolved: true,
+          sourceSystem: "package-engine",
+          newValue: "Package auto-assembled: 8 required items based on W-2, Seattle WA, Cloud Engineering role.",
+          reason: "AI evaluated client rules, state jurisdiction, employment type, and job category to generate package",
+        },
+      ],
+    });
+  }
+
   // ─────────────────────────────────────────────────────────
   // CONSULTANTS (active workforce)
   // ─────────────────────────────────────────────────────────
@@ -906,11 +1570,7 @@ async function main() {
   ];
 
   for (const c of consultants) {
-    await prisma.consultant.upsert({
-      where: { email: c.email },
-      update: {},
-      create: c,
-    });
+    await prisma.consultant.create({ data: c });
   }
 
   console.log("✅  Seed complete.");
