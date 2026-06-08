@@ -23,6 +23,7 @@ import {
   Package,
   Plug,
   Receipt,
+  RefreshCcw,
   Scale,
   Settings,
   ShieldCheck,
@@ -223,6 +224,15 @@ export const NAV_SECTIONS: NavSection[] = [
         status: "live",
         spec: "§14",
         description: "Full lifecycle timeline from Day -14 to Day 30.",
+      },
+      {
+        id: "lifecycle",
+        label: "Lifecycle",
+        href: "/lifecycle",
+        icon: RefreshCcw,
+        status: "live",
+        spec: "§38",
+        description: "Assignment extensions, offboarding, rehire, and delta onboarding.",
       },
       {
         id: "packages",

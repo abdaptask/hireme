@@ -55,31 +55,22 @@ export function CandidatesTable({ candidates }: Props) {
       {/* Table */}
       <div className="overflow-x-auto">
         <table
+          role="grid"
           className="w-full border-collapse text-left"
           style={{ fontSize: "var(--table-font)" }}
         >
           <thead>
             <tr className="text-muted-foreground border-b">
-              {[
-                "Candidate",
-                "Client",
-                "Type",
-                "Stage",
-                "Status",
-                "Risk",
-                "Start",
-                "Progress",
-                "Owner",
-                "",
-              ].map((h, i) => (
-                <th
-                  key={i}
-                  className="px-3 font-medium whitespace-nowrap"
-                  style={{ height: "var(--row-h)" }}
-                >
-                  {h}
-                </th>
-              ))}
+              <th scope="col" className="px-3 font-medium whitespace-nowrap" style={{ height: "var(--row-h)" }}>Candidate</th>
+              <th scope="col" className="px-3 font-medium whitespace-nowrap" style={{ height: "var(--row-h)" }}>Client</th>
+              <th scope="col" className="hidden px-3 font-medium whitespace-nowrap sm:table-cell" style={{ height: "var(--row-h)" }}>Type</th>
+              <th scope="col" className="hidden px-3 font-medium whitespace-nowrap sm:table-cell" style={{ height: "var(--row-h)" }}>Stage</th>
+              <th scope="col" className="px-3 font-medium whitespace-nowrap" style={{ height: "var(--row-h)" }}>Status</th>
+              <th scope="col" className="px-3 font-medium whitespace-nowrap" style={{ height: "var(--row-h)" }}>Risk</th>
+              <th scope="col" className="hidden px-3 font-medium whitespace-nowrap md:table-cell" style={{ height: "var(--row-h)" }}>Start</th>
+              <th scope="col" className="hidden px-3 font-medium whitespace-nowrap md:table-cell" style={{ height: "var(--row-h)" }}>Progress</th>
+              <th scope="col" className="hidden px-3 font-medium whitespace-nowrap lg:table-cell" style={{ height: "var(--row-h)" }}>Owner</th>
+              <th scope="col" className="px-3 font-medium" style={{ height: "var(--row-h)" }}><span className="sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody>
@@ -113,8 +104,8 @@ export function CandidatesTable({ candidates }: Props) {
                 </td>
 
                 <td className="px-3 whitespace-nowrap">{c.client}</td>
-                <td className="text-muted-foreground px-3">{c.employmentType}</td>
-                <td className="text-muted-foreground px-3 whitespace-nowrap">
+                <td className="hidden text-muted-foreground px-3 sm:table-cell">{c.employmentType}</td>
+                <td className="hidden text-muted-foreground px-3 whitespace-nowrap sm:table-cell">
                   {c.stage}
                 </td>
                 <td className="px-3">
@@ -123,11 +114,11 @@ export function CandidatesTable({ candidates }: Props) {
                 <td className="px-3">
                   <RiskBadge level={c.risk} />
                 </td>
-                <td className="px-3 whitespace-nowrap">
+                <td className="hidden px-3 whitespace-nowrap md:table-cell">
                   <span className="tabular-nums">{c.startDateLabel}</span>
                   <span className="text-muted-foreground"> · {c.startInDays}d</span>
                 </td>
-                <td className="px-3">
+                <td className="hidden px-3 md:table-cell">
                   <div className="flex items-center gap-2">
                     <div className="bg-muted h-1.5 w-16 overflow-hidden rounded-full">
                       <span
@@ -147,7 +138,7 @@ export function CandidatesTable({ candidates }: Props) {
                     </span>
                   </div>
                 </td>
-                <td className="text-muted-foreground px-3 whitespace-nowrap">
+                <td className="hidden text-muted-foreground px-3 whitespace-nowrap lg:table-cell">
                   {c.recruiter}
                 </td>
                 <td className="px-3">

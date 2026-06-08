@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -25,6 +26,7 @@ import {
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { DensityMenu } from "@/components/shell/density-menu";
 import { WorkspaceSwitcher } from "@/components/shell/workspace-switcher";
+import { NotificationCenter } from "@/components/shell/notification-center";
 import { useShell } from "@/components/shell/shell-context";
 import { useEntitlements } from "@/components/providers/entitlements-provider";
 import { useAiCopilot } from "@/components/ai/ai-provider";
@@ -39,11 +41,29 @@ const QUICK_CREATE = [
   { label: "Exception", navId: "exceptions", href: "/planned/exceptions" },
 ];
 
-const MOCK_NOTIFICATIONS = [
-  { id: 1, text: "3 documents are awaiting your review", tone: "info" },
-  { id: 2, text: "Start date for J. Rivera is now at risk", tone: "danger" },
-  { id: 3, text: "Background check SLA breached for 2 candidates", tone: "warning" },
-];
+/** Unread count shown on the bell badge — kept in sync with NotificationCenter mock data */
+const UNREAD_NOTIFICATION_COUNT = 6;
+
+function NotificationCenterButton() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="relative"
+        aria-label={`Notifications, ${UNREAD_NOTIFICATION_COUNT} unread`}
+        onClick={() => setOpen(true)}
+      >
+        <Bell className="size-4.5" />
+        <span className="bg-danger absolute top-1.5 right-1.5 flex size-4 items-center justify-center rounded-full text-[9px] font-semibold text-white">
+          {UNREAD_NOTIFICATION_COUNT}
+        </span>
+      </Button>
+      <NotificationCenter open={open} onOpenChange={setOpen} />
+    </>
+  );
+}
 
 function useBreadcrumb(persona: Persona) {
   const pathname = usePathname();
@@ -71,6 +91,13 @@ export function AppHeader({ persona }: { persona: Persona }) {
 
   return (
     <header className="bg-background/80 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-30 flex h-14 items-center gap-2 border-b px-3 backdrop-blur">
+      {/* Skip navigation link — visually hidden until focused (WCAG 2.4.1) */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-background focus:px-3 focus:py-1 focus:rounded focus:text-sm focus:font-medium focus:ring-2 ring-primary"
+      >
+        Skip to main content
+      </a>
       {/* Left cluster */}
       <Button
         variant="ghost"
@@ -164,48 +191,7 @@ export function AppHeader({ persona }: { persona: Persona }) {
         </DropdownMenu>
 
         {/* Notifications (§106) */}
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon"
-                className="relative"
-                aria-label="Notifications"
-              />
-            }
-          >
-            <Bell className="size-4.5" />
-            <span className="bg-danger absolute top-1.5 right-1.5 flex size-4 items-center justify-center rounded-full text-[9px] font-semibold text-white">
-              {MOCK_NOTIFICATIONS.length}
-            </span>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80">
-            <DropdownMenuLabel className="flex items-center justify-between">
-              Notifications
-              <Badge variant="secondary" className="text-[10px]">
-                {MOCK_NOTIFICATIONS.length} new
-              </Badge>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {MOCK_NOTIFICATIONS.map((n) => (
-              <DropdownMenuItem key={n.id} className="items-start gap-2 py-2">
-                <span
-                  className="mt-1.5 size-2 shrink-0 rounded-full"
-                  style={{ background: `var(--${n.tone})` }}
-                />
-                <span className="text-sm leading-snug">{n.text}</span>
-              </DropdownMenuItem>
-            ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="justify-center text-xs"
-              onClick={() => router.push("/planned/my-work")}
-            >
-              Open My Work
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <NotificationCenterButton />
 
         {/* AI Copilot (§105) */}
         <Button
