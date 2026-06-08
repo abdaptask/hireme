@@ -4,11 +4,8 @@ import { notFound } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
-  Bot,
   Calendar,
   CheckCircle2,
-  ChevronRight,
-  FileText,
   Handshake,
   Mail,
   MapPin,
@@ -25,7 +22,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   PipelineStatusBadge,
   RiskBadge,
-  StatusBadge,
   StatusDot,
 } from "@/components/status-badge";
 import { DocumentsTable } from "@/components/documents/documents-table";
@@ -35,14 +31,21 @@ import {
   type CandidateDetail,
   type CandidateDocument,
   type ReadinessDimension,
-  type TimelineEvent,
 } from "@/lib/candidates";
 import {
   getDbCandidateFull,
   dbToSummary,
-  relativeTime,
   type DbCandidateFull,
 } from "@/lib/db-candidates";
+import { Placeholder } from "@/components/360/placeholder";
+import { TaskList } from "@/components/360/task-list";
+import { Timeline } from "@/components/360/timeline";
+import { DbScreening } from "@/components/360/db-screening";
+import { DbTraining } from "@/components/360/db-training";
+import { DbEquipment } from "@/components/360/db-equipment";
+import { DbPayroll } from "@/components/360/db-payroll";
+import { DbBilling } from "@/components/360/db-billing";
+import { DbAudit } from "@/components/360/db-audit";
 import { getCandidateAiSummary, getRecommendations } from "@/lib/ai";
 import { CandidateAiPanel } from "@/components/ai/candidate-ai-panel";
 import { InitiateOnboardingButton } from "@/app/(app)/candidates/[id]/initiate-button";
@@ -94,52 +97,6 @@ function mockDocStatusToEnum(s: CandidateDocument["status"]): string {
   }
 }
 
-const TRAINING_STATUS_META: Record<string, { tone: "success" | "warning" | "danger" | "info" | "neutral"; label: string }> = {
-  COMPLETED: { tone: "success", label: "Completed" },
-  STARTED: { tone: "info", label: "In progress" },
-  ASSIGNED: { tone: "neutral", label: "Assigned" },
-  OVERDUE: { tone: "danger", label: "Overdue" },
-  FAILED: { tone: "danger", label: "Failed" },
-  WAIVED: { tone: "neutral", label: "Waived" },
-  EXPIRING: { tone: "warning", label: "Expiring" },
-};
-
-const SCREENING_STATUS_META: Record<string, { tone: "success" | "warning" | "danger" | "info" | "neutral"; label: string }> = {
-  ORDERED: { tone: "neutral", label: "Ordered" },
-  INVITED: { tone: "info", label: "Invited" },
-  CONSENTED: { tone: "info", label: "Consented" },
-  IN_PROGRESS: { tone: "info", label: "In progress" },
-  INFO_REQUIRED: { tone: "warning", label: "Info required" },
-  VENDOR_DELAYED: { tone: "warning", label: "Vendor delayed" },
-  CLEAR: { tone: "success", label: "Clear" },
-  REVIEW_REQUIRED: { tone: "danger", label: "Review required" },
-  ADVERSE_PENDING: { tone: "danger", label: "Adverse pending" },
-};
-
-const EQUIP_STATUS_META: Record<string, { tone: "success" | "warning" | "danger" | "info" | "neutral"; label: string }> = {
-  REQUESTED: { tone: "neutral", label: "Requested" },
-  APPROVED: { tone: "info", label: "Approved" },
-  ASSIGNED: { tone: "info", label: "Assigned" },
-  SHIPPED: { tone: "info", label: "Shipped" },
-  DELIVERED: { tone: "success", label: "Delivered" },
-  ENROLLED: { tone: "success", label: "Enrolled" },
-  READY: { tone: "success", label: "Ready" },
-  DELAYED: { tone: "warning", label: "Delayed" },
-  RETURN_REQUIRED: { tone: "warning", label: "Return required" },
-  RETURNED: { tone: "neutral", label: "Returned" },
-  LOST: { tone: "danger", label: "Lost" },
-  DAMAGED: { tone: "danger", label: "Damaged" },
-};
-
-const TIMELINE_ICON: Record<TimelineEvent["kind"], typeof User> = {
-  candidate: User,
-  human: User,
-  ai: Bot,
-  integration: ArrowRight,
-  document: FileText,
-  approval: CheckCircle2,
-};
-
 // ─────────────────────────────────────────────────────────
 // Sub-components
 // ─────────────────────────────────────────────────────────
@@ -185,73 +142,6 @@ function InfoRow({
   );
 }
 
-function Placeholder({ module, version }: { module: string; version: string }) {
-  return (
-    <div className="text-muted-foreground flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center text-sm">
-      <Sparkles className="mb-2 size-5" />
-      <p className="text-foreground font-medium">{module}</p>
-      <p className="mt-1">Full detail arrives with this module ({version}).</p>
-    </div>
-  );
-}
-
-function TaskList({ tasks }: { tasks: CandidateDetail["tasks"] }) {
-  return (
-    <ul className="flex flex-col gap-2">
-      {tasks.map((t) => (
-        <li
-          key={t.id}
-          className="flex items-center gap-3 rounded-lg border px-3 py-2"
-        >
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-medium">{t.title}</span>
-            <span className="text-metadata">
-              {t.owner} · {t.due}
-            </span>
-          </span>
-          <PipelineStatusBadge status={t.status} />
-          <ChevronRight className="text-muted-foreground size-4" />
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function Timeline({ events }: { events: TimelineEvent[] }) {
-  return (
-    <ol className="flex flex-col">
-      {events.map((e, i) => {
-        const Icon = TIMELINE_ICON[e.kind];
-        const last = i === events.length - 1;
-        return (
-          <li key={e.id} className="flex gap-3">
-            <div className="flex flex-col items-center">
-              <span
-                className={cn(
-                  "flex size-7 shrink-0 items-center justify-center rounded-full border",
-                  e.kind === "ai"
-                    ? "bg-ai-muted text-ai-muted-foreground border-transparent"
-                    : "bg-muted text-muted-foreground",
-                )}
-              >
-                <Icon className="size-3.5" />
-              </span>
-              {!last && <span className="bg-border my-0.5 w-0.5 flex-1" />}
-            </div>
-            <div className={cn("pb-4", last && "pb-0")}>
-              <p className="text-sm font-medium">{e.title}</p>
-              {e.detail && (
-                <p className="text-muted-foreground text-xs">{e.detail}</p>
-              )}
-              <p className="text-metadata mt-0.5">{e.time}</p>
-            </div>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
 // ─────────────────────────────────────────────────────────
 // DB-backed tab sections
 // ─────────────────────────────────────────────────────────
@@ -270,287 +160,6 @@ function DbDocuments({ docs }: { docs: DbCandidateFull["documents"] }) {
     rejectedReason: d.rejectedReason,
   }));
   return <DocumentsTable documents={rows} />;
-}
-
-function DbScreening({ screenings }: { screenings: DbCandidateFull["screenings"] }) {
-  if (!screenings.length) return <Placeholder module="Background check & screening" version="v0.5" />;
-  return (
-    <div className="flex flex-col gap-3">
-      {screenings.map((s) => {
-        const meta = SCREENING_STATUS_META[s.status] ?? { tone: "neutral" as const, label: s.status };
-        return (
-          <div key={s.id} className="bg-card rounded-xl border p-4 shadow-xs">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">{s.packageType ?? "Background Check"}</p>
-                <p className="text-muted-foreground text-xs">Vendor: {s.vendor}</p>
-              </div>
-              <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
-            </div>
-            {s.notes && (
-              <p className="text-muted-foreground mt-2 rounded-lg bg-muted/50 px-3 py-2 text-xs">
-                {s.notes}
-              </p>
-            )}
-            <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-              {s.orderedAt && (
-                <div>
-                  <p className="text-data-label">Ordered</p>
-                  <p className="font-medium">{s.orderedAt.toLocaleDateString()}</p>
-                </div>
-              )}
-              {s.estimatedCompletion && (
-                <div>
-                  <p className="text-data-label">Est. completion</p>
-                  <p className="font-medium">{s.estimatedCompletion.toLocaleDateString()}</p>
-                </div>
-              )}
-              {s.cost != null && (
-                <div>
-                  <p className="text-data-label">Cost</p>
-                  <p className="font-medium">${s.cost.toFixed(2)}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function DbTraining({ training }: { training: DbCandidateFull["training"] }) {
-  if (!training.length) return <Placeholder module="Training & certifications" version="v0.6" />;
-  return (
-    <div className="bg-card overflow-hidden rounded-xl border shadow-xs">
-      <table className="w-full text-left text-sm">
-        <thead className="text-muted-foreground border-b">
-          <tr>
-            <th className="px-4 py-2 font-medium">Course</th>
-            <th className="px-4 py-2 font-medium">Category</th>
-            <th className="px-4 py-2 font-medium">Status</th>
-            <th className="px-4 py-2 font-medium">Due / Completed</th>
-          </tr>
-        </thead>
-        <tbody>
-          {training.map((t) => {
-            const meta = TRAINING_STATUS_META[t.status] ?? { tone: "neutral" as const, label: t.status };
-            const dateLabel = t.completedAt
-              ? t.completedAt.toLocaleDateString()
-              : t.dueDate
-                ? t.dueDate.toLocaleDateString()
-                : "—";
-            return (
-              <tr key={t.id} className="border-b last:border-0">
-                <td className="px-4 py-2.5 font-medium">{t.title}</td>
-                <td className="text-muted-foreground px-4 py-2.5 capitalize">{t.category}</td>
-                <td className="px-4 py-2.5">
-                  <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
-                </td>
-                <td className="text-muted-foreground px-4 py-2.5">{dateLabel}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function DbEquipment({ equipment }: { equipment: DbCandidateFull["equipment"] }) {
-  if (!equipment.length) return <Placeholder module="Equipment & IT provisioning" version="v0.5" />;
-  return (
-    <div className="flex flex-col gap-3">
-      {equipment.map((e) => {
-        const meta = EQUIP_STATUS_META[e.status] ?? { tone: "neutral" as const, label: e.status };
-        return (
-          <div key={e.id} className="bg-card rounded-xl border p-4 shadow-xs">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">{e.label}</p>
-                <p className="text-muted-foreground text-xs capitalize">{e.assetType}</p>
-              </div>
-              <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
-            </div>
-            {e.trackingNumber && (
-              <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <p className="text-data-label">Tracking</p>
-                  <p className="font-medium font-mono text-xs">{e.trackingNumber}</p>
-                </div>
-                {e.carrier && (
-                  <div>
-                    <p className="text-data-label">Carrier</p>
-                    <p className="font-medium">{e.carrier}</p>
-                  </div>
-                )}
-                {e.estimatedDelivery && (
-                  <div>
-                    <p className="text-data-label">Est. delivery</p>
-                    <p className="font-medium">{e.estimatedDelivery.toLocaleDateString()}</p>
-                  </div>
-                )}
-              </div>
-            )}
-            {/* IT access flags */}
-            <div className="mt-3 flex flex-wrap gap-2">
-              {[
-                { label: "Email", ready: e.emailProvisioned },
-                { label: "VPN", ready: e.vpnProvisioned },
-                { label: "Client access", ready: e.clientCredentials },
-                { label: "Enrolled", ready: e.deviceEnrolled },
-              ].map(({ label, ready }) => (
-                <span
-                  key={label}
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
-                    ready
-                      ? "bg-success-muted text-success-muted-foreground"
-                      : "bg-muted text-muted-foreground",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "size-1.5 rounded-full",
-                      ready ? "bg-success" : "bg-muted-foreground/40",
-                    )}
-                  />
-                  {label}
-                </span>
-              ))}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function DbPayroll({ payroll }: { payroll: DbCandidateFull["payroll"] }) {
-  if (!payroll) return <Placeholder module="Payroll readiness" version="v0.5" />;
-
-  const checks: { label: string; done: boolean }[] = [
-    { label: "Employment classification", done: payroll.classification },
-    { label: "Pay rate", done: payroll.payRate },
-    { label: "Overtime rules", done: payroll.overtimeRules },
-    { label: "Tax jurisdiction", done: payroll.taxJurisdiction },
-    { label: "Direct deposit", done: payroll.directDeposit },
-    { label: "Federal W-4", done: payroll.w4 },
-    { label: "State tax form", done: payroll.stateTax },
-    { label: "I-9", done: payroll.i9 },
-    { label: "Benefits eligibility", done: payroll.benefitsEligibility },
-    { label: "Payroll entity", done: payroll.payrollEntity },
-    { label: "Start date confirmed", done: payroll.startDateSet },
-  ];
-  const readyCount = checks.filter((c) => c.done).length;
-  const pct = Math.round((readyCount / checks.length) * 100);
-
-  return (
-    <div className="bg-card rounded-xl border p-4 shadow-xs">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-card-heading">Payroll Readiness</h3>
-        <StatusBadge tone={payroll.status === "READY" ? "success" : "warning"}>
-          {pct}% · {payroll.status === "READY" ? "Ready" : "Not ready"}
-        </StatusBadge>
-      </div>
-      <ul className="grid gap-2 sm:grid-cols-2">
-        {checks.map((c) => (
-          <li key={c.label} className="flex items-center gap-2 text-sm">
-            <span
-              className={cn(
-                "size-2 shrink-0 rounded-full",
-                c.done ? "bg-success" : "bg-danger",
-              )}
-            />
-            <span className={c.done ? "" : "text-muted-foreground"}>{c.label}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function DbBilling({ billing }: { billing: DbCandidateFull["billing"] }) {
-  if (!billing) return <Placeholder module="Billing readiness" version="v0.5" />;
-
-  const checks: { label: string; done: boolean }[] = [
-    { label: "Bill rate", done: billing.billRate },
-    { label: "Markup", done: billing.markup },
-    { label: "Purchase order", done: billing.purchaseOrder },
-    { label: "Cost center", done: billing.costCenter },
-    { label: "Client worker ID", done: billing.clientWorkerId },
-    { label: "VMS ID", done: billing.vmsId },
-    { label: "Invoice frequency", done: billing.invoiceFrequency },
-    { label: "Timesheet method", done: billing.timesheetMethod },
-    { label: "Expense policy", done: billing.expensePolicy },
-    { label: "Billing entity", done: billing.billingEntity },
-    { label: "Approved start date", done: billing.approvedStartDate },
-  ];
-  const readyCount = checks.filter((c) => c.done).length;
-  const pct = Math.round((readyCount / checks.length) * 100);
-
-  return (
-    <div className="bg-card rounded-xl border p-4 shadow-xs">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-card-heading">Billing / Client Readiness</h3>
-        <StatusBadge tone={billing.status === "READY" ? "success" : "warning"}>
-          {pct}% · {billing.status === "READY" ? "Ready" : "Not ready"}
-        </StatusBadge>
-      </div>
-      <ul className="grid gap-2 sm:grid-cols-2">
-        {checks.map((c) => (
-          <li key={c.label} className="flex items-center gap-2 text-sm">
-            <span
-              className={cn(
-                "size-2 shrink-0 rounded-full",
-                c.done ? "bg-success" : "bg-danger",
-              )}
-            />
-            <span className={c.done ? "" : "text-muted-foreground"}>{c.label}</span>
-          </li>
-        ))}
-      </ul>
-      {billing.clientWorkerId2 && (
-        <p className="text-muted-foreground mt-3 text-xs">
-          Client worker ID: <span className="font-mono text-foreground">{billing.clientWorkerId2}</span>
-        </p>
-      )}
-    </div>
-  );
-}
-
-function DbAudit({ events }: { events: DbCandidateFull["auditEvents"] }) {
-  if (!events.length) return <Placeholder module="Audit & evidence" version="v0.2" />;
-  return (
-    <div className="bg-card overflow-hidden rounded-xl border shadow-xs">
-      <table className="w-full text-left text-sm">
-        <thead className="text-muted-foreground border-b">
-          <tr>
-            <th className="px-4 py-2 font-medium">Action</th>
-            <th className="px-4 py-2 font-medium">Actor</th>
-            <th className="px-4 py-2 font-medium">Detail</th>
-            <th className="px-4 py-2 font-medium">Time</th>
-          </tr>
-        </thead>
-        <tbody>
-          {events.map((e) => (
-            <tr key={e.id} className="border-b last:border-0">
-              <td className="px-4 py-2.5 font-medium capitalize">
-                {e.action.toLowerCase().replace("_", " ")}
-              </td>
-              <td className="text-muted-foreground px-4 py-2.5">{e.actor}</td>
-              <td className="text-muted-foreground px-4 py-2.5 max-w-xs truncate">
-                {e.newValue ?? e.entityLabel ?? "—"}
-              </td>
-              <td className="text-muted-foreground px-4 py-2.5 whitespace-nowrap">
-                {relativeTime(e.timestamp)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
 }
 
 // ─────────────────────────────────────────────────────────

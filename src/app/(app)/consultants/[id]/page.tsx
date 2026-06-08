@@ -8,12 +8,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft,
-  ArrowUpRight,
   Briefcase,
   Building2,
   Calendar,
-  CheckCircle2,
-  Clock,
   DollarSign,
   Globe,
   Handshake,
@@ -23,7 +20,6 @@ import {
   Phone,
   Star,
   Tag,
-  TrendingUp,
   User,
 } from "lucide-react";
 import { PageContainer } from "@/components/page";
@@ -34,6 +30,14 @@ import { StatusBadge } from "@/components/status-badge";
 import { DocumentsTable } from "@/components/documents/documents-table";
 import { StatTile } from "@/components/workspace/stat-tile";
 import { EditConsultantSheet } from "@/components/consultants/edit-consultant-sheet";
+import { Placeholder } from "@/components/360/placeholder";
+import { Timeline, type TimelineEventRow } from "@/components/360/timeline";
+import { DbScreening } from "@/components/360/db-screening";
+import { DbTraining } from "@/components/360/db-training";
+import { DbEquipment } from "@/components/360/db-equipment";
+import { DbPayroll } from "@/components/360/db-payroll";
+import { DbBilling } from "@/components/360/db-billing";
+import { DbAudit } from "@/components/360/db-audit";
 import {
   getConsultant,
   CONSULTANT_STATUS_META,
@@ -110,14 +114,6 @@ type AssignmentRow = {
   status: "Completed" | "Active" | "Extended";
 };
 
-type LifecycleEvent = {
-  id: string;
-  date: string;
-  title: string;
-  detail: string;
-  kind: "milestone" | "rate" | "extension" | "start" | "end";
-};
-
 const ASSIGNMENT_STATUS_TONE: Record<
   AssignmentRow["status"],
   "success" | "info" | "warning"
@@ -127,21 +123,36 @@ const ASSIGNMENT_STATUS_TONE: Record<
   Extended: "warning",
 };
 
-const LIFECYCLE_COLORS: Record<LifecycleEvent["kind"], string> = {
-  start: "bg-success-muted text-success-muted-foreground",
-  milestone: "bg-info-muted text-info-muted-foreground",
-  extension: "bg-warning-muted text-warning-muted-foreground",
-  rate: "bg-neutral-muted text-neutral-muted-foreground",
-  end: "bg-danger-muted text-danger-muted-foreground",
-};
+// ─────────────────────────────────────────────────────────
+// Audit → Timeline normalizer
+// ─────────────────────────────────────────────────────────
 
-const LIFECYCLE_ICON: Record<LifecycleEvent["kind"], typeof CheckCircle2> = {
-  start: CheckCircle2,
-  milestone: Star,
-  extension: ArrowUpRight,
-  rate: TrendingUp,
-  end: Clock,
-};
+function auditToTimelineKind(action: string): TimelineEventRow["kind"] {
+  const a = action.toUpperCase();
+  if (a.includes("AI") || a.includes("RECOMMEND")) return "ai";
+  if (a.includes("APPROVE") || a.includes("REJECT")) return "approval";
+  if (a.includes("DOCUMENT") || a.includes("UPLOAD") || a.includes("RECORD_EDIT"))
+    return "document";
+  if (a.includes("INTEGRATION") || a.includes("SYNC") || a.includes("API"))
+    return "integration";
+  if (a.includes("CANDIDATE") || a.includes("CONSULTANT")) return "candidate";
+  return "human";
+}
+
+function auditEventsToTimeline(
+  events: DbConsultantFull["auditEvents"],
+): TimelineEventRow[] {
+  return events.map((ev) => ({
+    id: ev.id,
+    time: relativeTime(ev.timestamp),
+    kind: auditToTimelineKind(ev.action),
+    title: ev.action.replace(/_/g, " ").toLowerCase().replace(/^./, (s) => s.toUpperCase()),
+    detail:
+      ev.newValue ??
+      ev.entityLabel ??
+      (ev.actor ? `by ${ev.actor}` : undefined),
+  }));
+}
 
 // ─────────────────────────────────────────────────────────
 // DB-backed Assignments tab
@@ -227,58 +238,6 @@ function DbAssignments({
 }
 
 // ─────────────────────────────────────────────────────────
-// DB-backed Audit/Lifecycle tab
-// ─────────────────────────────────────────────────────────
-
-function DbLifecycle({
-  auditEvents,
-}: {
-  auditEvents: DbConsultantFull["auditEvents"];
-}) {
-  if (!auditEvents.length) {
-    return (
-      <div className="text-muted-foreground rounded-xl border border-dashed py-10 text-center text-sm">
-        No lifecycle events recorded yet.
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-card rounded-xl border p-4 shadow-xs">
-      <h3 className="text-card-heading mb-4">Lifecycle timeline</h3>
-      <ol className="flex flex-col">
-        {auditEvents.map((ev, i) => {
-          const last = i === auditEvents.length - 1;
-          const action = ev.action.toLowerCase().replace("_", " ");
-          return (
-            <li key={ev.id} className="flex gap-3">
-              <div className="flex flex-col items-center">
-                <span className="bg-info-muted text-info-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-full">
-                  <CheckCircle2 className="size-4" />
-                </span>
-                {!last && <span className="bg-border my-1 w-0.5 flex-1" />}
-              </div>
-              <div className={cn("pb-5 min-w-0", last && "pb-0")}>
-                <p className="text-sm font-semibold capitalize">{action}</p>
-                <p className="text-muted-foreground mt-0.5 text-sm leading-relaxed">
-                  {ev.newValue ?? ev.entityLabel ?? "System event"}
-                  {ev.actor && (
-                    <span className="text-metadata"> · by {ev.actor}</span>
-                  )}
-                </p>
-                <p className="text-metadata mt-1 tabular-nums">
-                  {relativeTime(ev.timestamp)}
-                </p>
-              </div>
-            </li>
-          );
-        })}
-      </ol>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────
 // Mock assignment history (fallback)
 // ─────────────────────────────────────────────────────────
 
@@ -320,45 +279,6 @@ function MockAssignments({ c }: { c: Consultant }) {
           </tbody>
         </table>
       </div>
-    </div>
-  );
-}
-
-function MockLifecycle({ c }: { c: Consultant }) {
-  const lifecycle: LifecycleEvent[] = [
-    { id: "lc1", date: c.startDate, title: "Onboarding completed", detail: `Successfully onboarded to ${c.client}. Package approved by ${c.accountManager}.`, kind: "start" },
-    { id: "lc2", date: "2023-09-15", title: "Day 30 check-in completed", detail: `Satisfaction score recorded: ${c.satisfactionScore}/5. Client feedback positive.`, kind: "milestone" },
-    ...(c.extensions > 0 ? [{ id: "lc3", date: "2024-01-08", title: "Assignment extended", detail: `Extension approved by ${c.accountManager}. Duration: +6 months.`, kind: "extension" as const }] : []),
-    { id: "lc4", date: "2024-04-01", title: "Rate adjustment", detail: `Bill rate updated to ${fmt(c.billRate)}. Approved by ${c.accountManager}.`, kind: "rate" },
-    ...(c.status === "Offboarding" || c.status === "Former" || c.status === "Converted"
-      ? [{ id: "lc5", date: c.endDate ?? "2025-06-01", title: c.status === "Converted" ? "Converted to full-time employee" : c.status === "Former" ? "Assignment completed" : "Offboarding initiated", detail: c.status === "Converted" ? "Client conversion finalised. Conversion fee processed." : "Equipment return and access removal in progress.", kind: "end" as const }]
-      : []),
-  ];
-
-  return (
-    <div className="bg-card rounded-xl border p-4 shadow-xs">
-      <h3 className="text-card-heading mb-4">Lifecycle timeline</h3>
-      <ol className="flex flex-col">
-        {lifecycle.map((ev, i) => {
-          const Icon = LIFECYCLE_ICON[ev.kind];
-          const last = i === lifecycle.length - 1;
-          return (
-            <li key={ev.id} className="flex gap-3">
-              <div className="flex flex-col items-center">
-                <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-full", LIFECYCLE_COLORS[ev.kind])}>
-                  <Icon className="size-4" />
-                </span>
-                {!last && <span className="bg-border my-1 w-0.5 flex-1" />}
-              </div>
-              <div className={cn("pb-5 min-w-0", last && "pb-0")}>
-                <p className="text-sm font-semibold">{ev.title}</p>
-                <p className="text-muted-foreground mt-0.5 text-sm leading-relaxed">{ev.detail}</p>
-                <p className="text-metadata mt-1 tabular-nums">{ev.date}</p>
-              </div>
-            </li>
-          );
-        })}
-      </ol>
     </div>
   );
 }
@@ -727,16 +647,12 @@ export default async function ConsultantRecordPage({
         <Tabs defaultValue="overview">
           <TabsList className="flex-wrap">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="assignments">
-              Assignments
-              {dbFull && (
-                <span className="bg-muted ml-1.5 rounded px-1.5 py-0.5 text-[10px] tabular-nums">
-                  {dbFull.assignments.length}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="lifecycle">
-              {dbFull ? "Audit & Lifecycle" : "Lifecycle"}
+            <TabsTrigger value="timeline">Timeline</TabsTrigger>
+            <TabsTrigger value="tasks">
+              Tasks
+              <span className="bg-muted ml-1.5 rounded px-1.5 py-0.5 text-[10px] tabular-nums">
+                0
+              </span>
             </TabsTrigger>
             <TabsTrigger value="documents">
               Documents
@@ -763,6 +679,48 @@ export default async function ConsultantRecordPage({
                   </span>
                 ) : null;
               })()}
+            </TabsTrigger>
+            <TabsTrigger value="screening">
+              Screening
+              {dbFull && dbFull.screenings.length > 0 && (
+                <span className="bg-muted ml-1.5 rounded px-1.5 py-0.5 text-[10px] tabular-nums">
+                  {dbFull.screenings.length}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="payroll">Payroll</TabsTrigger>
+            <TabsTrigger value="billing">Billing</TabsTrigger>
+            <TabsTrigger value="equipment">
+              Equipment
+              {dbFull && dbFull.equipment.length > 0 && (
+                <span className="bg-muted ml-1.5 rounded px-1.5 py-0.5 text-[10px] tabular-nums">
+                  {dbFull.equipment.length}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="training">
+              Training
+              {dbFull && dbFull.training.length > 0 && (
+                <span className="bg-muted ml-1.5 rounded px-1.5 py-0.5 text-[10px] tabular-nums">
+                  {dbFull.training.length}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="assignments">
+              Assignments
+              {dbFull && (
+                <span className="bg-muted ml-1.5 rounded px-1.5 py-0.5 text-[10px] tabular-nums">
+                  {dbFull.assignments.length}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="audit">
+              Audit
+              {dbFull && dbFull.auditEvents.length > 0 && (
+                <span className="bg-muted ml-1.5 rounded px-1.5 py-0.5 text-[10px] tabular-nums">
+                  {dbFull.auditEvents.length}
+                </span>
+              )}
             </TabsTrigger>
           </TabsList>
 
@@ -884,26 +842,23 @@ export default async function ConsultantRecordPage({
             </div>
           </TabsContent>
 
-          {/* Assignments */}
-          <TabsContent value="assignments" className="mt-4">
-            {dbFull ? (
-              <DbAssignments
-                assignments={dbFull.assignments}
-                consultantTitle={dbFull.title ?? "Consultant"}
-                clientName={dbFull.clientName ?? "Unknown"}
-              />
+          {/* Timeline — built from merged audit events */}
+          <TabsContent value="timeline" className="mt-4">
+            {dbFull && dbFull.auditEvents.length > 0 ? (
+              <div className="bg-card rounded-xl border p-4 shadow-xs">
+                <h3 className="text-card-heading mb-3">Activity timeline</h3>
+                <Timeline events={auditEventsToTimeline(dbFull.auditEvents)} />
+              </div>
             ) : (
-              <MockAssignments c={c} />
+              <Placeholder module="Activity timeline" version="v0.6" />
             )}
           </TabsContent>
 
-          {/* Lifecycle / Audit */}
-          <TabsContent value="lifecycle" className="mt-4">
-            {dbFull ? (
-              <DbLifecycle auditEvents={dbFull.auditEvents} />
-            ) : (
-              <MockLifecycle c={c} />
-            )}
+          {/* Tasks — consultants don't yet have a task source */}
+          <TabsContent value="tasks" className="mt-4">
+            <div className="text-muted-foreground rounded-xl border border-dashed py-10 text-center text-sm">
+              No open tasks for this consultant.
+            </div>
           </TabsContent>
 
           {/* Documents */}
@@ -921,6 +876,73 @@ export default async function ConsultantRecordPage({
               <DbCommunications communications={dbFull.communications} />
             ) : (
               <MockCommunications consultantName={c.name} />
+            )}
+          </TabsContent>
+
+          {/* Screening */}
+          <TabsContent value="screening" className="mt-4">
+            {dbFull ? (
+              <DbScreening screenings={dbFull.screenings} />
+            ) : (
+              <Placeholder module="Background check & screening" version="v0.5" />
+            )}
+          </TabsContent>
+
+          {/* Payroll */}
+          <TabsContent value="payroll" className="mt-4">
+            {dbFull ? (
+              <DbPayroll payroll={dbFull.payroll} />
+            ) : (
+              <Placeholder module="Payroll readiness" version="v0.5" />
+            )}
+          </TabsContent>
+
+          {/* Billing */}
+          <TabsContent value="billing" className="mt-4">
+            {dbFull ? (
+              <DbBilling billing={dbFull.billing} />
+            ) : (
+              <Placeholder module="Billing readiness" version="v0.5" />
+            )}
+          </TabsContent>
+
+          {/* Equipment */}
+          <TabsContent value="equipment" className="mt-4">
+            {dbFull ? (
+              <DbEquipment equipment={dbFull.equipment} />
+            ) : (
+              <Placeholder module="Equipment & IT provisioning" version="v0.5" />
+            )}
+          </TabsContent>
+
+          {/* Training */}
+          <TabsContent value="training" className="mt-4">
+            {dbFull ? (
+              <DbTraining training={dbFull.training} />
+            ) : (
+              <Placeholder module="Training & certifications" version="v0.6" />
+            )}
+          </TabsContent>
+
+          {/* Assignments */}
+          <TabsContent value="assignments" className="mt-4">
+            {dbFull ? (
+              <DbAssignments
+                assignments={dbFull.assignments}
+                consultantTitle={dbFull.title ?? "Consultant"}
+                clientName={dbFull.clientName ?? "Unknown"}
+              />
+            ) : (
+              <MockAssignments c={c} />
+            )}
+          </TabsContent>
+
+          {/* Audit */}
+          <TabsContent value="audit" className="mt-4">
+            {dbFull ? (
+              <DbAudit events={dbFull.auditEvents} />
+            ) : (
+              <Placeholder module="Audit & evidence" version="v0.2" />
             )}
           </TabsContent>
         </Tabs>
