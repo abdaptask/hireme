@@ -15,8 +15,6 @@ import {
   CheckCircle2,
   Clock,
   DollarSign,
-  FileSearch,
-  FileText,
   Globe,
   Handshake,
   Mail,
@@ -33,7 +31,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/status-badge";
+import { DocumentsTable } from "@/components/documents/documents-table";
 import { StatTile } from "@/components/workspace/stat-tile";
+import { EditConsultantSheet } from "@/components/consultants/edit-consultant-sheet";
 import {
   getConsultant,
   CONSULTANT_STATUS_META,
@@ -47,10 +47,7 @@ import {
 import { relativeTime } from "@/lib/db-candidates";
 import {
   DOCUMENTS,
-  DOCUMENT_CATEGORY_META,
-  DOCUMENT_STATUS_META,
   type Document as MockDocument,
-  type DocumentCategory,
 } from "@/lib/documents";
 import {
   COMMUNICATIONS,
@@ -367,63 +364,6 @@ function MockLifecycle({ c }: { c: Consultant }) {
 }
 
 // ─────────────────────────────────────────────────────────
-// Documents tab — shared helpers
-// ─────────────────────────────────────────────────────────
-
-const DB_DOC_STATUS_TONE: Record<string, StatusTone> = {
-  APPROVED: "success",
-  REJECTED: "danger",
-  CORRECTION_REQUIRED: "danger",
-  SUBMITTED: "info",
-  AI_REVIEW: "info",
-  PENDING: "neutral",
-  EXPIRED: "warning",
-};
-
-const DB_DOC_STATUS_LABEL: Record<string, string> = {
-  APPROVED: "Approved",
-  REJECTED: "Rejected",
-  CORRECTION_REQUIRED: "Correction Required",
-  SUBMITTED: "Submitted",
-  AI_REVIEW: "AI Review",
-  PENDING: "Pending",
-  EXPIRED: "Expired",
-};
-
-function aiScoreTone(score: number | null | undefined): string {
-  if (score == null) return "bg-muted text-muted-foreground";
-  if (score >= 95) return "bg-success-muted text-success-muted-foreground";
-  if (score >= 80) return "bg-warning-muted text-warning-muted-foreground";
-  return "bg-danger-muted text-danger-muted-foreground";
-}
-
-const CATEGORY_FALLBACK_COLOR =
-  "bg-neutral-muted text-neutral-muted-foreground";
-
-function categoryBadgeClass(category: string | null | undefined): string {
-  if (!category) return CATEGORY_FALLBACK_COLOR;
-  const key = category.toLowerCase() as DocumentCategory;
-  return DOCUMENT_CATEGORY_META[key]?.color ?? CATEGORY_FALLBACK_COLOR;
-}
-
-function categoryLabel(category: string | null | undefined): string {
-  if (!category) return "—";
-  const key = category.toLowerCase() as DocumentCategory;
-  return DOCUMENT_CATEGORY_META[key]?.label ?? category;
-}
-
-function fmtDateOnly(d: Date | string | null | undefined): string {
-  if (!d) return "—";
-  const date = typeof d === "string" ? new Date(d) : d;
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-// ─────────────────────────────────────────────────────────
 // DB-backed Documents tab
 // ─────────────────────────────────────────────────────────
 
@@ -432,119 +372,23 @@ function DbDocuments({
 }: {
   documents: DbConsultantFull["documents"];
 }) {
-  if (!documents.length) {
-    return (
-      <div className="text-muted-foreground rounded-xl border border-dashed py-10 text-center text-sm">
-        <FileSearch className="text-muted-foreground mx-auto mb-2 size-6" />
-        No documents have been recorded for this consultant yet.
-      </div>
-    );
-  }
-
+  const rows = documents.map((d) => ({
+    id: d.id,
+    name: d.name,
+    category: d.category,
+    status: d.status,
+    uploadedAt: d.uploadedAt,
+    reviewedAt: d.reviewedAt,
+    reviewedBy: d.reviewedBy,
+    expiresAt: d.expiresAt,
+    aiScore: d.aiScore,
+    rejectedReason: d.rejectedReason,
+  }));
   return (
-    <div className="bg-card overflow-hidden rounded-xl border shadow-xs">
-      <div className="border-b px-4 py-3">
-        <h3 className="text-card-heading">Documents from onboarding</h3>
-        <p className="text-metadata mt-0.5">
-          Submitted during the candidate phase · {documents.length} record
-          {documents.length !== 1 ? "s" : ""}
-        </p>
-      </div>
-      <div className="overflow-x-auto">
-        <table
-          className="w-full border-collapse text-left"
-          style={{ fontSize: "var(--table-font)" }}
-        >
-          <thead>
-            <tr className="text-muted-foreground border-b">
-              {[
-                "Document",
-                "Category",
-                "Status",
-                "AI Score",
-                "Uploaded",
-                "Reviewed by",
-                "",
-              ].map((h, i) => (
-                <th
-                  key={i}
-                  className="px-4 font-medium whitespace-nowrap"
-                  style={{ height: "var(--row-h)" }}
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {documents.map((d) => {
-              const tone = DB_DOC_STATUS_TONE[d.status] ?? "neutral";
-              const label = DB_DOC_STATUS_LABEL[d.status] ?? d.status;
-              return (
-                <tr
-                  key={d.id}
-                  className="border-b last:border-0"
-                  style={{ height: "var(--row-h)" }}
-                >
-                  <td className="px-4 font-medium">
-                    <div className="flex items-center gap-2">
-                      <FileText className="text-muted-foreground size-4 shrink-0" />
-                      <span className="truncate">{d.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-4">
-                    <span
-                      className={cn(
-                        "inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium capitalize",
-                        categoryBadgeClass(d.category),
-                      )}
-                    >
-                      {categoryLabel(d.category)}
-                    </span>
-                  </td>
-                  <td className="px-4">
-                    <StatusBadge tone={tone}>{label}</StatusBadge>
-                  </td>
-                  <td className="px-4 whitespace-nowrap">
-                    {d.aiScore != null ? (
-                      <span
-                        className={cn(
-                          "inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums",
-                          aiScoreTone(d.aiScore),
-                        )}
-                      >
-                        {d.aiScore}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </td>
-                  <td className="text-muted-foreground px-4 tabular-nums whitespace-nowrap">
-                    {fmtDateOnly(d.uploadedAt)}
-                  </td>
-                  <td className="text-muted-foreground px-4 whitespace-nowrap">
-                    {d.reviewedBy ?? (
-                      <span className="text-muted-foreground/60">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 text-right whitespace-nowrap">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      nativeButton={false}
-                      render={<Link href="/documents" />}
-                    >
-                      Open
-                      <ArrowUpRight className="size-3.5" />
-                    </Button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <DocumentsTable
+      documents={rows}
+      emptyLabel="No documents have been recorded for this consultant yet."
+    />
   );
 }
 
@@ -655,6 +499,16 @@ function matchByName<T extends { candidateName: string }>(
   return records.filter((r) => r.candidateName.trim().toLowerCase() === target);
 }
 
+const MOCK_STATUS_TO_ENUM: Record<MockDocument["status"], string> = {
+  pending: "PENDING",
+  submitted: "SUBMITTED",
+  "ai-review": "AI_REVIEW",
+  approved: "APPROVED",
+  rejected: "REJECTED",
+  expired: "EXPIRED",
+  "correction-required": "CORRECTION_REQUIRED",
+};
+
 function MockDocuments({ consultantName }: { consultantName: string }) {
   const docs: MockDocument[] = matchByName(DOCUMENTS, consultantName).sort(
     (a, b) => {
@@ -664,125 +518,24 @@ function MockDocuments({ consultantName }: { consultantName: string }) {
     },
   );
 
-  if (!docs.length) {
-    return (
-      <div className="text-muted-foreground rounded-xl border border-dashed py-10 text-center text-sm">
-        <FileSearch className="text-muted-foreground mx-auto mb-2 size-6" />
-        <p className="mb-1">
-          Onboarding documents and communications from this consultant&rsquo;s
-          onboarding will appear here.
-        </p>
-        <p className="text-metadata">
-          Migrate this consultant to the live database to populate.
-        </p>
-      </div>
-    );
-  }
+  const rows = docs.map((d) => ({
+    id: d.id,
+    name: d.docType,
+    category: d.category,
+    status: MOCK_STATUS_TO_ENUM[d.status] ?? "PENDING",
+    uploadedAt: d.submittedDate ?? null,
+    reviewedAt: d.reviewedDate ?? null,
+    reviewedBy: d.reviewer ?? null,
+    expiresAt: d.expiresDate ?? null,
+    aiScore: d.aiScore ?? null,
+    rejectedReason: d.rejectionReason ?? null,
+  }));
 
   return (
-    <div className="bg-card overflow-hidden rounded-xl border shadow-xs">
-      <div className="border-b px-4 py-3">
-        <h3 className="text-card-heading">Documents from onboarding</h3>
-        <p className="text-metadata mt-0.5">
-          Submitted during the candidate phase · {docs.length} record
-          {docs.length !== 1 ? "s" : ""}
-        </p>
-      </div>
-      <div className="overflow-x-auto">
-        <table
-          className="w-full border-collapse text-left"
-          style={{ fontSize: "var(--table-font)" }}
-        >
-          <thead>
-            <tr className="text-muted-foreground border-b">
-              {[
-                "Document",
-                "Category",
-                "Status",
-                "AI Score",
-                "Uploaded",
-                "Reviewed by",
-                "",
-              ].map((h, i) => (
-                <th
-                  key={i}
-                  className="px-4 font-medium whitespace-nowrap"
-                  style={{ height: "var(--row-h)" }}
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {docs.map((d) => {
-              const meta = DOCUMENT_STATUS_META[d.status];
-              const catMeta = DOCUMENT_CATEGORY_META[d.category];
-              return (
-                <tr
-                  key={d.id}
-                  className="border-b last:border-0"
-                  style={{ height: "var(--row-h)" }}
-                >
-                  <td className="px-4 font-medium">
-                    <div className="flex items-center gap-2">
-                      <FileText className="text-muted-foreground size-4 shrink-0" />
-                      <span className="truncate">{d.docType}</span>
-                    </div>
-                  </td>
-                  <td className="px-4">
-                    <span
-                      className={cn(
-                        "inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium",
-                        catMeta.color,
-                      )}
-                    >
-                      {catMeta.label}
-                    </span>
-                  </td>
-                  <td className="px-4">
-                    <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
-                  </td>
-                  <td className="px-4 whitespace-nowrap">
-                    {d.aiScore != null ? (
-                      <span
-                        className={cn(
-                          "inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums",
-                          aiScoreTone(d.aiScore),
-                        )}
-                      >
-                        {d.aiScore}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </td>
-                  <td className="text-muted-foreground px-4 tabular-nums whitespace-nowrap">
-                    {d.submittedDate ?? "—"}
-                  </td>
-                  <td className="text-muted-foreground px-4 whitespace-nowrap">
-                    {d.reviewer ?? (
-                      <span className="text-muted-foreground/60">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 text-right whitespace-nowrap">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      nativeButton={false}
-                      render={<Link href="/documents" />}
-                    >
-                      Open
-                      <ArrowUpRight className="size-3.5" />
-                    </Button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <DocumentsTable
+      documents={rows}
+      emptyLabel="Onboarding documents from this consultant's onboarding will appear here. Migrate this consultant to the live database to populate."
+    />
   );
 }
 
@@ -935,6 +688,28 @@ export default async function ConsultantRecordPage({
                 {c.role} · {c.client} · {c.location}
               </p>
             </div>
+            {dbFull && (
+              <div className="ml-auto flex items-center gap-2">
+                <EditConsultantSheet
+                  consultant={{
+                    id: dbFull.id,
+                    firstName: dbFull.firstName,
+                    lastName: dbFull.lastName,
+                    email: dbFull.email,
+                    phone: dbFull.phone,
+                    title: dbFull.title,
+                    status: dbFull.status,
+                    employmentType: dbFull.employmentType,
+                    billRate: dbFull.billRate,
+                    payRate: dbFull.payRate,
+                    startDate: dbFull.startDate,
+                    endDate: dbFull.endDate,
+                    location: dbFull.location,
+                    notes: dbFull.notes,
+                  }}
+                />
+              </div>
+            )}
           </div>
         </PageContainer>
       </div>
