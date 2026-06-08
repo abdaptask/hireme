@@ -36,8 +36,6 @@ import {
   Zap,
 } from "lucide-react";
 import { PageContainer, PageHeader } from "@/components/page";
-import { LaunchpadSection } from "@/components/launchpad/launchpad-section";
-import { LAUNCHPADS } from "@/lib/launchpad";
 import {
   PipelineStatusBadge,
   RiskBadge,
@@ -854,18 +852,6 @@ export default function OnboarderWorkspacePage() {
             </Button>
           </div>
         }
-      />
-
-      {/* Persona Launchpad */}
-      <LaunchpadSection
-        config={LAUNCHPADS["onboarder"]}
-        badgeCounts={{
-          myQueue: ATTENTION_ITEMS.length,
-          actionRequired: ATTENTION_ITEMS.length,
-          docReview: DOC_REVIEW_ITEMS.length,
-          pendingApproval: 0,
-          atRisk: risks.length,
-        }}
       />
 
       {/* ── 1. AI MORNING BRIEFING (§41.4) ─────────────────────────────── */}

@@ -21,8 +21,6 @@ import {
   Activity,
 } from "lucide-react";
 import { PageContainer } from "@/components/page";
-import { LaunchpadSection } from "@/components/launchpad/launchpad-section";
-import { LAUNCHPADS } from "@/lib/launchpad";
 import { StatTile } from "@/components/workspace/stat-tile";
 import { PipelineStatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -682,16 +680,6 @@ export default function RecruiterWorkspacePage() {
         </div>
       </div>
 
-      {/* Persona Launchpad */}
-      <LaunchpadSection
-        config={LAUNCHPADS["recruiter"]}
-        badgeCounts={{
-          myRoster: total,
-          actionNeeded: actionCount,
-          startingSoon: startingThisWeek,
-          readyToStart: readyToStart,
-        }}
-      />
 
       {/* ── Vitals row ── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">

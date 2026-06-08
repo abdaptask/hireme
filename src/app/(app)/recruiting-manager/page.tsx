@@ -18,8 +18,6 @@ import {
   UsersRound,
 } from "lucide-react";
 import { PageContainer, PageHeader } from "@/components/page";
-import { LaunchpadSection } from "@/components/launchpad/launchpad-section";
-import { LAUNCHPADS } from "@/lib/launchpad";
 import { StatTile } from "@/components/workspace/stat-tile";
 import { WidgetCard, BarList } from "@/components/dashboard/widgets";
 import { StatusBadge } from "@/components/status-badge";
@@ -893,9 +891,6 @@ export default function RecruitingManagerPage() {
           </Button>
         }
       />
-
-      {/* Persona Launchpad */}
-      <LaunchpadSection config={LAUNCHPADS["recruiting-manager"]} />
 
       {/* Vitals row */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
