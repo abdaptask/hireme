@@ -175,7 +175,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="flex min-w-0 flex-1 flex-col">
           <AppHeader persona={DEFAULT_PERSONA} />
           <PreviewBanner />
-          <main className="flex-1 overflow-auto">{children}</main>
+          <main id="main-content" className="flex-1 overflow-auto">{children}</main>
         </div>
       </div>
 

@@ -128,15 +128,15 @@ export default async function ExceptionsPage() {
           >
             <thead className="text-muted-foreground border-b">
               <tr>
-                <th className="px-3 py-2 font-medium">ID</th>
-                <th className="px-3 py-2 font-medium">Severity</th>
-                <th className="px-3 py-2 font-medium">Category</th>
-                <th className="px-3 py-2 font-medium">Candidate</th>
-                <th className="px-3 py-2 font-medium">Owner</th>
-                <th className="px-3 py-2 font-medium">Age</th>
-                <th className="px-3 py-2 font-medium">SLA</th>
-                <th className="px-3 py-2 font-medium">Impact</th>
-                <th className="px-3 py-2 font-medium">Status</th>
+                <th scope="col" className="hidden px-3 py-2 font-medium sm:table-cell">ID</th>
+                <th scope="col" className="px-3 py-2 font-medium">Severity</th>
+                <th scope="col" className="px-3 py-2 font-medium">Category</th>
+                <th scope="col" className="px-3 py-2 font-medium">Candidate</th>
+                <th scope="col" className="hidden px-3 py-2 font-medium md:table-cell">Owner</th>
+                <th scope="col" className="hidden px-3 py-2 font-medium md:table-cell">Age</th>
+                <th scope="col" className="hidden px-3 py-2 font-medium sm:table-cell">SLA</th>
+                <th scope="col" className="hidden px-3 py-2 font-medium lg:table-cell">Impact</th>
+                <th scope="col" className="px-3 py-2 font-medium">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -148,7 +148,7 @@ export default async function ExceptionsPage() {
                     e.status === "resolved" && "opacity-60",
                   )}
                 >
-                  <td className="text-muted-foreground px-3 py-2 font-mono whitespace-nowrap">
+                  <td className="hidden text-muted-foreground px-3 py-2 font-mono whitespace-nowrap sm:table-cell">
                     {e.id}
                   </td>
                   <td className="px-3 py-2">
@@ -175,13 +175,13 @@ export default async function ExceptionsPage() {
                     )}
                     <span className="text-metadata block">{e.client}</span>
                   </td>
-                  <td className="text-muted-foreground px-3 py-2 whitespace-nowrap">
+                  <td className="hidden text-muted-foreground px-3 py-2 whitespace-nowrap md:table-cell">
                     {e.owner}
                   </td>
-                  <td className="text-muted-foreground px-3 py-2 tabular-nums">
+                  <td className="hidden text-muted-foreground px-3 py-2 tabular-nums md:table-cell">
                     {e.ageDays}d
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
+                  <td className="hidden px-3 py-2 whitespace-nowrap sm:table-cell">
                     <span
                       className={cn(
                         "text-xs font-medium",
@@ -193,7 +193,7 @@ export default async function ExceptionsPage() {
                       {e.sla.label}
                     </span>
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="hidden px-3 py-2 lg:table-cell">
                     {e.startDateImpact ? (
                       <span className="text-danger-muted-foreground inline-flex items-center gap-1 text-xs font-medium">
                         <CalendarX className="size-3.5" /> Start
