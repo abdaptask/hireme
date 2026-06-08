@@ -5,6 +5,7 @@ import { Check, Eye, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -67,7 +68,9 @@ export function RoleSwitcher() {
         <SlidersHorizontal className="text-sidebar-foreground/50 size-3.5" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" side="top" className="w-60">
-        <DropdownMenuLabel>View the app as</DropdownMenuLabel>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>View the app as</DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         {ROLES.map((r) => (
           <DropdownMenuItem key={r.id} onClick={() => preview(r.id)}>
