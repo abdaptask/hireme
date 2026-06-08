@@ -28,23 +28,25 @@ import {
   StatusBadge,
   StatusDot,
 } from "@/components/status-badge";
+import { DocumentsTable } from "@/components/documents/documents-table";
 import { ProgressRing } from "@/components/portal/progress-ring";
 import {
   getCandidate,
   type CandidateDetail,
+  type CandidateDocument,
   type ReadinessDimension,
   type TimelineEvent,
 } from "@/lib/candidates";
 import {
   getDbCandidateFull,
   dbToSummary,
-  mapDocStatus,
   relativeTime,
   type DbCandidateFull,
 } from "@/lib/db-candidates";
 import { getCandidateAiSummary, getRecommendations } from "@/lib/ai";
 import { CandidateAiPanel } from "@/components/ai/candidate-ai-panel";
 import { InitiateOnboardingButton } from "@/app/(app)/candidates/[id]/initiate-button";
+import { EditCandidateSheet } from "@/components/candidates/edit-candidate-sheet";
 import { cn } from "@/lib/utils";
 
 // ─────────────────────────────────────────────────────────
@@ -77,12 +79,20 @@ const TONE_BAR: Record<string, string> = {
   neutral: "bg-neutral",
 };
 
-const DOC_STATUS_META = {
-  approved: { tone: "success" as const, label: "Approved" },
-  "in-review": { tone: "info" as const, label: "In review" },
-  rejected: { tone: "danger" as const, label: "Rejected" },
-  pending: { tone: "neutral" as const, label: "Pending" },
-};
+/** Map mock CandidateDocument.status to the Prisma DocumentStatus enum used by DocumentsTable. */
+function mockDocStatusToEnum(s: CandidateDocument["status"]): string {
+  switch (s) {
+    case "approved":
+      return "APPROVED";
+    case "rejected":
+      return "REJECTED";
+    case "in-review":
+      return "AI_REVIEW";
+    case "pending":
+    default:
+      return "PENDING";
+  }
+}
 
 const TRAINING_STATUS_META: Record<string, { tone: "success" | "warning" | "danger" | "info" | "neutral"; label: string }> = {
   COMPLETED: { tone: "success", label: "Completed" },
@@ -247,47 +257,19 @@ function Timeline({ events }: { events: TimelineEvent[] }) {
 // ─────────────────────────────────────────────────────────
 
 function DbDocuments({ docs }: { docs: DbCandidateFull["documents"] }) {
-  if (!docs.length) {
-    return (
-      <div className="text-muted-foreground rounded-xl border border-dashed py-10 text-center text-sm">
-        No documents on file yet.
-      </div>
-    );
-  }
-  return (
-    <div className="bg-card overflow-hidden rounded-xl border shadow-xs">
-      <table className="w-full text-left text-sm">
-        <thead className="text-muted-foreground border-b">
-          <tr>
-            <th className="px-4 py-2 font-medium">Document</th>
-            <th className="px-4 py-2 font-medium">Category</th>
-            <th className="px-4 py-2 font-medium">Status</th>
-            <th className="px-4 py-2 font-medium">Uploaded</th>
-          </tr>
-        </thead>
-        <tbody>
-          {docs.map((d) => {
-            const meta = DOC_STATUS_META[mapDocStatus(d.status)];
-            const uploaded = d.uploadedAt
-              ? relativeTime(d.uploadedAt)
-              : "—";
-            return (
-              <tr key={d.id} className="border-b last:border-0">
-                <td className="px-4 py-2.5 font-medium">{d.name}</td>
-                <td className="text-muted-foreground px-4 py-2.5 capitalize">
-                  {d.category}
-                </td>
-                <td className="px-4 py-2.5">
-                  <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
-                </td>
-                <td className="text-muted-foreground px-4 py-2.5">{uploaded}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
+  const rows = docs.map((d) => ({
+    id: d.id,
+    name: d.name,
+    category: d.category,
+    status: d.status,
+    uploadedAt: d.uploadedAt,
+    reviewedAt: d.reviewedAt,
+    reviewedBy: d.reviewedBy,
+    expiresAt: d.expiresAt,
+    aiScore: d.aiScore,
+    rejectedReason: d.rejectedReason,
+  }));
+  return <DocumentsTable documents={rows} />;
 }
 
 function DbScreening({ screenings }: { screenings: DbCandidateFull["screenings"] }) {
@@ -671,6 +653,32 @@ export default async function CandidateRecordPage({
               </p>
             </div>
             <div className="ml-auto flex items-center gap-2">
+              {dbCandidate && (
+                <EditCandidateSheet
+                  candidate={{
+                    id: dbCandidate.id,
+                    firstName: dbCandidate.firstName,
+                    lastName: dbCandidate.lastName,
+                    email: dbCandidate.email,
+                    phone: dbCandidate.phone,
+                    status: dbCandidate.status,
+                    risk: dbCandidate.risk,
+                    stage: dbCandidate.stage,
+                    employmentType: dbCandidate.employmentType,
+                    workLocation: dbCandidate.workLocation,
+                    startDate: dbCandidate.startDate,
+                    clientName: dbCandidate.clientName,
+                    recruiter: dbCandidate.recruiter,
+                    onboarder: dbCandidate.onboarder,
+                    vendor: dbCandidate.vendor,
+                    notes: dbCandidate.notes,
+                    street: dbCandidate.street,
+                    city: dbCandidate.city,
+                    state: dbCandidate.state,
+                    zip: dbCandidate.zip,
+                  }}
+                />
+              )}
               <InitiateOnboardingButton
                 prefill={{
                   firstName: c.name.split(" ")[0],
@@ -858,33 +866,15 @@ export default async function CandidateRecordPage({
                 {dbCandidate ? (
                   <DbDocuments docs={dbCandidate.documents} />
                 ) : (
-                  <div className="bg-card overflow-hidden rounded-xl border shadow-xs">
-                    <table className="w-full text-left text-sm">
-                      <thead className="text-muted-foreground border-b">
-                        <tr>
-                          <th className="px-4 py-2 font-medium">Document</th>
-                          <th className="px-4 py-2 font-medium">Type</th>
-                          <th className="px-4 py-2 font-medium">Status</th>
-                          <th className="px-4 py-2 font-medium">Updated</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {c.documents.map((d) => {
-                          const meta = DOC_STATUS_META[d.status];
-                          return (
-                            <tr key={d.id} className="border-b last:border-0">
-                              <td className="px-4 py-2.5 font-medium">{d.name}</td>
-                              <td className="text-muted-foreground px-4 py-2.5">{d.type}</td>
-                              <td className="px-4 py-2.5">
-                                <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
-                              </td>
-                              <td className="text-muted-foreground px-4 py-2.5">{d.updated}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                  <DocumentsTable
+                    documents={c.documents.map((d) => ({
+                      id: d.id,
+                      name: d.name,
+                      category: d.type,
+                      status: mockDocStatusToEnum(d.status),
+                      uploadedAt: d.updated,
+                    }))}
+                  />
                 )}
               </TabsContent>
 
