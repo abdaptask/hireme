@@ -1,10 +1,14 @@
 "use client";
 
 /**
- * Persona Launchpad grid — a category-grouped icon grid surfaced at the top
- * of each persona workspace. Inspired by the JobDiva launchpad: each row is
- * a labeled category (with a colored band) followed by a responsive grid of
- * square icon tiles (4 / 6 / 8 across mobile / tablet / desktop).
+ * Persona Launchpad grid — a category-grouped icon grid surfaced inside the
+ * Cmd+J slide-out (see launchpad-sheet.tsx). Inspired by the JobDiva
+ * launchpad but adapted for a narrow slide-out: each category renders as a
+ * heading above a 3-column (4 on wider) grid of square icon tiles.
+ *
+ * The earlier version used a side-band label + 6-8 column grid that worked
+ * full-width but collapsed unreadably in the slide-out; this layout keeps
+ * the visual identity while reserving full width for the tile area.
  *
  * Tiles are declared in `src/lib/launchpad.ts` by icon NAME; this renderer
  * maps each name to a lucide-react component. Optional badge counts come
@@ -294,13 +298,14 @@ function TileButton({
     <Link
       href={tile.href}
       className={cn(
-        "group relative flex aspect-square flex-col items-center justify-center gap-1.5 rounded-xl p-2 ring-1 transition-all",
+        // overflow-hidden is critical — labels wrap inside the tile rather
+        // than bleeding into the neighbor (the bug that made the grid look
+        // like a scrambled cipher in narrow slide-out widths).
+        "group relative flex aspect-square flex-col items-center justify-center gap-2 overflow-hidden rounded-xl p-2.5 ring-1 transition-all",
         "hover:scale-105 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         style.tile,
       )}
-      aria-label={
-        showBadge ? `${tile.label} (${badge})` : tile.label
-      }
+      aria-label={showBadge ? `${tile.label} (${badge})` : tile.label}
     >
       {showBadge && (
         <span
@@ -310,8 +315,8 @@ function TileButton({
           {badge > 99 ? "99+" : badge}
         </span>
       )}
-      <Icon className={cn("size-5", style.icon)} aria-hidden />
-      <span className="line-clamp-2 text-center text-xs leading-tight text-foreground">
+      <Icon className={cn("size-5 shrink-0", style.icon)} aria-hidden />
+      <span className="line-clamp-2 break-words text-center text-[11px] font-medium leading-tight text-foreground">
         {tile.label}
       </span>
     </Link>
@@ -330,28 +335,29 @@ function CategoryRow({
   const style = TONE_STYLES[category.tone];
 
   return (
-    <div className="flex flex-col gap-3 border-b py-3 last:border-0 sm:flex-row">
-      {/* Category label — vertical band on desktop, inline on mobile. */}
-      <div className="flex shrink-0 items-center gap-2 sm:w-32 sm:items-start">
+    <section className="border-b py-4 last:border-0">
+      {/* Category heading — stacked above the tile grid. Tested in the
+          slide-out (~640px content); a side-band label collapses the tile
+          area below readability. */}
+      <div className="mb-3 flex items-center gap-2">
         <span
           aria-hidden
-          className={cn(
-            "h-4 w-1 shrink-0 rounded-full sm:h-8",
-            style.band,
-          )}
+          className={cn("h-4 w-1 shrink-0 rounded-full", style.band)}
         />
-        <span
+        <h3
           className={cn(
             "text-xs font-semibold uppercase tracking-wide",
             style.label,
           )}
         >
           {category.label}
-        </span>
+        </h3>
       </div>
 
-      {/* Tile grid. */}
-      <div className="grid flex-1 grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-8">
+      {/* Tile grid — 3 columns on small screens, 4 on the wider slide-out.
+          Each tile is aspect-square and clips its label so neighbors never
+          collide. */}
+      <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
         {category.tiles.map((tile) => (
           <TileButton
             key={`${category.id}-${tile.label}`}
@@ -361,7 +367,7 @@ function CategoryRow({
           />
         ))}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -375,16 +381,14 @@ export function LaunchpadGrid({
   badgeCounts?: Record<string, number>;
 }) {
   return (
-    <div className="rounded-xl border bg-card">
-      <div className="divide-y px-4 sm:px-5">
-        {config.categories.map((category) => (
-          <CategoryRow
-            key={category.id}
-            category={category}
-            badgeCounts={badgeCounts}
-          />
-        ))}
-      </div>
+    <div className="flex flex-col">
+      {config.categories.map((category) => (
+        <CategoryRow
+          key={category.id}
+          category={category}
+          badgeCounts={badgeCounts}
+        />
+      ))}
     </div>
   );
 }
