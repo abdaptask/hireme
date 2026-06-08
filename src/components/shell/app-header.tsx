@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
   CircleHelp,
+  LayoutGrid,
   PanelLeft,
   Plus,
   Search,
@@ -90,7 +91,13 @@ function useBreadcrumb(persona: Persona) {
 }
 
 export function AppHeader({ persona }: { persona: Persona }) {
-  const { pinned, togglePinned, setMobileNavOpen, setPaletteOpen } = useShell();
+  const {
+    pinned,
+    togglePinned,
+    setMobileNavOpen,
+    setPaletteOpen,
+    setLaunchpadOpen,
+  } = useShell();
   const { isVisible } = useEntitlements();
   const { openCopilot } = useAiCopilot();
   const router = useRouter();
@@ -175,6 +182,17 @@ export function AppHeader({ persona }: { persona: Persona }) {
           <Search className="size-4.5" />
         </Button>
 
+        {/* Quick Actions launchpad (Cmd+J) */}
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Quick actions"
+          title="Quick actions (⌘J)"
+          onClick={() => setLaunchpadOpen(true)}
+        >
+          <LayoutGrid className="size-4.5" />
+        </Button>
+
         {/* Quick create (§121.4) */}
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -236,6 +254,12 @@ export function AppHeader({ persona }: { persona: Persona }) {
               Command palette
               <span className="text-muted-foreground ml-auto font-mono text-xs">
                 ⌘K
+              </span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setLaunchpadOpen(true)}>
+              Quick actions
+              <span className="text-muted-foreground ml-auto font-mono text-xs">
+                ⌘J
               </span>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => router.push("/planned/reports")}>

@@ -14,6 +14,7 @@ import { ShellContext } from "@/components/shell/shell-context";
 import { SidebarNav } from "@/components/shell/sidebar-nav";
 import { AppHeader } from "@/components/shell/app-header";
 import { CommandPalette } from "@/components/shell/command-palette";
+import { LaunchpadSheet } from "@/components/launchpad/launchpad-sheet";
 import { RoleSwitcher, PreviewBanner } from "@/components/shell/role-switcher";
 import { DEFAULT_PERSONA } from "@/lib/nav";
 import { useLocalStorage } from "@/lib/use-stored";
@@ -84,6 +85,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [hovered, setHovered] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [launchpadOpen, setLaunchpadOpen] = useState(false);
 
   const expanded = pinned || hovered;
 
@@ -98,6 +100,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setPaletteOpen((o) => !o);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Global Quick Actions launchpad shortcut (Cmd/Ctrl+J).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "j") {
+        e.preventDefault();
+        setLaunchpadOpen((o) => !o);
       }
     }
     window.addEventListener("keydown", onKey);
@@ -134,6 +148,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         setMobileNavOpen,
         paletteOpen,
         setPaletteOpen,
+        launchpadOpen,
+        setLaunchpadOpen,
       }}
     >
       <div className="flex h-dvh overflow-hidden">
@@ -180,6 +196,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+      <LaunchpadSheet open={launchpadOpen} onOpenChange={setLaunchpadOpen} />
     </ShellContext.Provider>
   );
 }

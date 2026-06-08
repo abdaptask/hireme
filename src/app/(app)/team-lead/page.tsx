@@ -24,8 +24,6 @@ import {
   Users,
 } from "lucide-react";
 import { PageContainer, PageHeader } from "@/components/page";
-import { LaunchpadSection } from "@/components/launchpad/launchpad-section";
-import { LAUNCHPADS } from "@/lib/launchpad";
 import { StatTile } from "@/components/workspace/stat-tile";
 import { WidgetCard } from "@/components/dashboard/widgets";
 import { BarList } from "@/components/dashboard/widgets";
@@ -638,17 +636,6 @@ export default function TeamLeadWorkspacePage() {
             )}
           </div>
         }
-      />
-
-      {/* Persona Launchpad */}
-      <LaunchpadSection
-        config={LAUNCHPADS["team-lead"]}
-        badgeCounts={{
-          podPipeline: pod.length,
-          todaysPriorities: PRIORITY_ITEMS.length,
-          atRisk: atRisk,
-          criticalIssues: 0,
-        }}
       />
 
       {/* Stat tiles */}

@@ -13,6 +13,9 @@ export type ShellContextValue = {
   /** Command palette (Cmd/Ctrl+K). */
   paletteOpen: boolean;
   setPaletteOpen: (open: boolean) => void;
+  /** Quick Actions launchpad slide-out (Cmd/Ctrl+J). */
+  launchpadOpen: boolean;
+  setLaunchpadOpen: (open: boolean) => void;
 };
 
 export const ShellContext = createContext<ShellContextValue | null>(null);

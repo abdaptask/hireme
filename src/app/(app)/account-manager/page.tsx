@@ -19,8 +19,6 @@ import {
   Eye,
 } from "lucide-react";
 import { PageContainer, PageHeader } from "@/components/page";
-import { LaunchpadSection } from "@/components/launchpad/launchpad-section";
-import { LAUNCHPADS } from "@/lib/launchpad";
 import { StatTile } from "@/components/workspace/stat-tile";
 import { StatusBadge } from "@/components/status-badge";
 import { cn } from "@/lib/utils";
@@ -679,17 +677,6 @@ export default function AccountManagerWorkspacePage() {
           description="Client Readiness workspace · Jun 7, 2026"
         />
       </div>
-
-      {/* Persona Launchpad */}
-      <LaunchpadSection
-        config={LAUNCHPADS["account-manager"]}
-        badgeCounts={{
-          myClients: CLIENTS.length,
-          promises: PROMISES.length,
-          escalations: 0,
-          clientApprovals: totalApprovals,
-        }}
-      />
 
       {/* ── Promise-at-risk alert banner ── */}
       {promisesAtRisk > 0 && (
