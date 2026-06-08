@@ -1,6 +1,6 @@
 import { StatusBadge } from "@/components/status-badge";
 import { cn } from "@/lib/utils";
-import { Placeholder } from "./placeholder";
+import { EmptyRecord } from "./empty-record";
 
 export type EquipmentRow = {
   id: string;
@@ -36,7 +36,7 @@ const EQUIP_STATUS_META: Record<
 
 export function DbEquipment({ equipment }: { equipment: EquipmentRow[] }) {
   if (!equipment.length)
-    return <Placeholder module="Equipment & IT provisioning" version="v0.5" />;
+    return <EmptyRecord message="No equipment or IT provisioning records for this person." />;
   return (
     <div className="flex flex-col gap-3">
       {equipment.map((e) => {

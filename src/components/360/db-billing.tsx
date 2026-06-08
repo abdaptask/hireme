@@ -1,6 +1,6 @@
 import { StatusBadge } from "@/components/status-badge";
 import { cn } from "@/lib/utils";
-import { Placeholder } from "./placeholder";
+import { EmptyRecord } from "./empty-record";
 
 export type BillingRow = {
   status: string;
@@ -19,7 +19,8 @@ export type BillingRow = {
 };
 
 export function DbBilling({ billing }: { billing: BillingRow | null }) {
-  if (!billing) return <Placeholder module="Billing readiness" version="v0.5" />;
+  if (!billing)
+    return <EmptyRecord message="No billing readiness record on file for this person." />;
 
   const checks: { label: string; done: boolean }[] = [
     { label: "Bill rate", done: billing.billRate },
