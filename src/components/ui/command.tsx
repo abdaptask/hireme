@@ -60,7 +60,10 @@ function CommandDialog({
         )}
         showCloseButton={showCloseButton}
       >
-        {children}
+        {/* The Command root MUST wrap CommandInput / CommandList — they bind
+            via cmdk's subscribe() and crash with "Cannot read properties of
+            undefined (reading 'subscribe')" without this provider. */}
+        <Command className="rounded-xl!">{children}</Command>
       </DialogContent>
     </Dialog>
   )
