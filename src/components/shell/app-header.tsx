@@ -32,6 +32,7 @@ import { useShell } from "@/components/shell/shell-context";
 import { useEntitlements } from "@/components/providers/entitlements-provider";
 import { useAiCopilot } from "@/components/ai/ai-provider";
 import { getNavItem, type Persona } from "@/lib/nav";
+import { useViewerNotifications } from "@/lib/notifications";
 
 const QUICK_CREATE = [
   { label: "Candidate", navId: "candidates", href: "/planned/candidates" },
@@ -42,24 +43,30 @@ const QUICK_CREATE = [
   { label: "Exception", navId: "exceptions", href: "/planned/exceptions" },
 ];
 
-/** Unread count shown on the bell badge — kept in sync with NotificationCenter mock data */
-const UNREAD_NOTIFICATION_COUNT = 6;
-
 function NotificationCenterButton() {
   const [open, setOpen] = useState(false);
+  const { viewAs } = useEntitlements();
+  const { unreadCount } = useViewerNotifications(viewAs);
+
   return (
     <>
       <Button
         variant="ghost"
         size="icon"
         className="relative"
-        aria-label={`Notifications, ${UNREAD_NOTIFICATION_COUNT} unread`}
+        aria-label={
+          unreadCount > 0
+            ? `Notifications, ${unreadCount} unread`
+            : "Notifications"
+        }
         onClick={() => setOpen(true)}
       >
         <Bell className="size-4.5" />
-        <span className="bg-danger absolute top-1.5 right-1.5 flex size-4 items-center justify-center rounded-full text-[9px] font-semibold text-white">
-          {UNREAD_NOTIFICATION_COUNT}
-        </span>
+        {unreadCount > 0 && (
+          <span className="bg-danger absolute top-1.5 right-1.5 flex size-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-semibold text-white">
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </span>
+        )}
       </Button>
       <NotificationCenter open={open} onOpenChange={setOpen} />
     </>

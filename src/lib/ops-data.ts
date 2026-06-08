@@ -7,6 +7,11 @@ import { CANDIDATES, type CandidateSummary } from "@/lib/candidates";
 import { managerStructure, podOf, type OrgFunction } from "@/lib/org";
 import type { StatusTone } from "@/lib/types";
 
+/* ------------------------------ Onboarder -------------------------------- */
+
+/** The demo onboarder whose desk the Onboarder workspace renders. */
+export const CURRENT_ONBOARDER = "Riya Kim";
+
 /* ----------------------------- Recruiter (§5.4) ---------------------------- */
 
 export const CURRENT_RECRUITER = "Devon Hughes";
