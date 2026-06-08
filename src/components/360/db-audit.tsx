@@ -1,5 +1,5 @@
 import { relativeTime } from "@/lib/db-candidates";
-import { Placeholder } from "./placeholder";
+import { EmptyRecord } from "./empty-record";
 
 export type AuditEventRow = {
   id: string;
@@ -11,7 +11,8 @@ export type AuditEventRow = {
 };
 
 export function DbAudit({ events }: { events: AuditEventRow[] }) {
-  if (!events.length) return <Placeholder module="Audit & evidence" version="v0.2" />;
+  if (!events.length)
+    return <EmptyRecord message="No audit events recorded for this person yet." />;
   return (
     <div className="bg-card overflow-hidden rounded-xl border shadow-xs">
       <table className="w-full text-left text-sm">

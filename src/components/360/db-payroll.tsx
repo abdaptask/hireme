@@ -1,6 +1,6 @@
 import { StatusBadge } from "@/components/status-badge";
 import { cn } from "@/lib/utils";
-import { Placeholder } from "./placeholder";
+import { EmptyRecord } from "./empty-record";
 
 export type PayrollRow = {
   status: string;
@@ -18,7 +18,8 @@ export type PayrollRow = {
 };
 
 export function DbPayroll({ payroll }: { payroll: PayrollRow | null }) {
-  if (!payroll) return <Placeholder module="Payroll readiness" version="v0.5" />;
+  if (!payroll)
+    return <EmptyRecord message="No payroll readiness record on file for this person." />;
 
   const checks: { label: string; done: boolean }[] = [
     { label: "Employment classification", done: payroll.classification },

@@ -1,5 +1,5 @@
 import { StatusBadge } from "@/components/status-badge";
-import { Placeholder } from "./placeholder";
+import { EmptyRecord } from "./empty-record";
 
 export type ScreeningRow = {
   id: string;
@@ -29,7 +29,7 @@ const SCREENING_STATUS_META: Record<
 
 export function DbScreening({ screenings }: { screenings: ScreeningRow[] }) {
   if (!screenings.length)
-    return <Placeholder module="Background check & screening" version="v0.5" />;
+    return <EmptyRecord message="No screening records on file for this person." />;
   return (
     <div className="flex flex-col gap-3">
       {screenings.map((s) => {

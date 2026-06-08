@@ -30,7 +30,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { DocumentsTable } from "@/components/documents/documents-table";
 import { StatTile } from "@/components/workspace/stat-tile";
 import { EditConsultantSheet } from "@/components/consultants/edit-consultant-sheet";
-import { Placeholder } from "@/components/360/placeholder";
+import { EmptyRecord } from "@/components/360/empty-record";
 import { Timeline, type TimelineEventRow } from "@/components/360/timeline";
 import { DbScreening } from "@/components/360/db-screening";
 import { DbTraining } from "@/components/360/db-training";
@@ -850,7 +850,7 @@ export default async function ConsultantRecordPage({
                 <Timeline events={auditEventsToTimeline(dbFull.auditEvents)} />
               </div>
             ) : (
-              <Placeholder module="Activity timeline" version="v0.6" />
+              <EmptyRecord message="This consultant has no DB record yet — open a database-backed consultant to see the timeline." />
             )}
           </TabsContent>
 
@@ -884,7 +884,7 @@ export default async function ConsultantRecordPage({
             {dbFull ? (
               <DbScreening screenings={dbFull.screenings} />
             ) : (
-              <Placeholder module="Background check & screening" version="v0.5" />
+              <EmptyRecord message="No screening records for this consultant." />
             )}
           </TabsContent>
 
@@ -893,7 +893,7 @@ export default async function ConsultantRecordPage({
             {dbFull ? (
               <DbPayroll payroll={dbFull.payroll} />
             ) : (
-              <Placeholder module="Payroll readiness" version="v0.5" />
+              <EmptyRecord message="No payroll readiness record for this consultant." />
             )}
           </TabsContent>
 
@@ -902,7 +902,7 @@ export default async function ConsultantRecordPage({
             {dbFull ? (
               <DbBilling billing={dbFull.billing} />
             ) : (
-              <Placeholder module="Billing readiness" version="v0.5" />
+              <EmptyRecord message="No billing readiness record for this consultant." />
             )}
           </TabsContent>
 
@@ -911,7 +911,7 @@ export default async function ConsultantRecordPage({
             {dbFull ? (
               <DbEquipment equipment={dbFull.equipment} />
             ) : (
-              <Placeholder module="Equipment & IT provisioning" version="v0.5" />
+              <EmptyRecord message="No equipment or IT provisioning records for this consultant." />
             )}
           </TabsContent>
 
@@ -920,7 +920,7 @@ export default async function ConsultantRecordPage({
             {dbFull ? (
               <DbTraining training={dbFull.training} />
             ) : (
-              <Placeholder module="Training & certifications" version="v0.6" />
+              <EmptyRecord message="No training or certification records for this consultant." />
             )}
           </TabsContent>
 
@@ -942,7 +942,7 @@ export default async function ConsultantRecordPage({
             {dbFull ? (
               <DbAudit events={dbFull.auditEvents} />
             ) : (
-              <Placeholder module="Audit & evidence" version="v0.2" />
+              <EmptyRecord message="No audit events recorded for this consultant yet." />
             )}
           </TabsContent>
         </Tabs>

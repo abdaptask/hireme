@@ -1567,6 +1567,38 @@ async function main() {
       startDate: new Date("2024-10-01"), endDate: new Date("2026-06-30"),
       location: "Seattle, WA", skills: ["AWS", "Terraform", "Kubernetes"],
     },
+
+    // ─── Bridge consultants — candidates who graduated to consultants ───
+    // These share email with existing Candidate rows so the Consultant 360
+    // page can surface their full onboarding-period history (documents,
+    // screenings, payroll, billing, equipment, training, communications,
+    // audit) via the email join in getDbConsultantFull().
+    {
+      firstName: "Lena", lastName: "Park",
+      email: "lena.park@example.com", phone: "(312) 555-0537",
+      status: "ACTIVE" as const, title: "Senior Retail Analyst",
+      clientName: "Skyline Retail Group", recruiter: "Sandra Lee",
+      onboarder: "Carlos Rivera", accountManager: "Devon Hughes",
+      employmentType: "W2" as const,
+      billRate: 125, payRate: 88,
+      startDate: new Date("2026-06-08"), endDate: new Date("2027-06-08"),
+      location: "Chicago, IL (Hybrid)",
+      skills: ["SAP Retail", "Merchandising Analytics"],
+      notes: "Graduated from candidate pipeline 2026-06-08. Full onboarding history retained.",
+    },
+    {
+      firstName: "Grace", lastName: "Okafor",
+      email: "grace.okafor@example.com", phone: "(615) 555-0289",
+      status: "ACTIVE" as const, title: "Health IT Specialist",
+      clientName: "Meridian Health", recruiter: "Sandra Lee",
+      onboarder: "Riya Kim", accountManager: "Devon Hughes",
+      employmentType: "W2" as const,
+      billRate: 132, payRate: 91,
+      startDate: new Date("2026-06-09"), endDate: new Date("2027-09-09"),
+      location: "Nashville, TN (Onsite)",
+      skills: ["Healthcare Compliance", "EHR Integration"],
+      notes: "Graduated from candidate pipeline 2026-06-09. Onboarding ran clean — see Audit tab.",
+    },
   ];
 
   for (const c of consultants) {

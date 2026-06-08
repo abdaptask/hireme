@@ -1,5 +1,5 @@
 import { StatusBadge } from "@/components/status-badge";
-import { Placeholder } from "./placeholder";
+import { EmptyRecord } from "./empty-record";
 
 export type TrainingRow = {
   id: string;
@@ -25,7 +25,7 @@ const TRAINING_STATUS_META: Record<
 
 export function DbTraining({ training }: { training: TrainingRow[] }) {
   if (!training.length)
-    return <Placeholder module="Training & certifications" version="v0.6" />;
+    return <EmptyRecord message="No training or certification records for this person." />;
   return (
     <div className="bg-card overflow-hidden rounded-xl border shadow-xs">
       <table className="w-full text-left text-sm">
