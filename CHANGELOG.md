@@ -11,6 +11,25 @@ bump delivers a new vertical slice from the spec ([docs/ROADMAP.md](docs/ROADMAP
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-08
+
+### Added
+- **Reports catalog** — 17 reports now fully built with KPIs, charts, drill-downs, filters, and mock data:
+  - Financial: Fintech P&L, Combine Income Statement, Balance Sheet, P&L Summary
+  - Back Office: Headcount, Consultant, Consultant w/ PNL, Consultant Contact, Equipment, Clients Invoice, AE/REC Summary, Add Drop Reports (parent + 5 sub-reports), Add Drop Summary, Client Add Drop Summary, Commission, Custom
+  - Recruiter Performance — full §54 implementation with 6 KPIs, 4 charts, per-recruiter scorecards
+- **Document Intelligence** — full §20 implementation:
+  - Split-panel viewer with OCR-extracted fields panel showing confidence scores
+  - 4 inspector tabs: Fields / Validation / Signatures / Cross-doc consistency
+  - AI insights banner + bulk actions
+  - Cross-document name/address/DOB matching
+- **Workflow Studio** — full §19 visual editor:
+  - 3-panel layout: workflow list / canvas / inspector
+  - 10 node types (Start, Task, Decision, Approval, Wait, Integration, AI Review, Communication, Escalation, End)
+  - Sample 15-node onboarding workflow rendered visually
+  - Inspector with 4 tabs (Properties, Conditions, SLA, Integrations)
+  - Validation panel + Simulate panel + Compare versions sheet
+
 ## [0.2.0] - 2026-06-08
 
 ### Added

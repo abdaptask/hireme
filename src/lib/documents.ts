@@ -23,6 +23,41 @@ export type DocumentCategory =
   | "screening"
   | "payroll";
 
+/** OCR-extracted field with confidence + verification state (§20). */
+export type ExtractedField = {
+  label: string;
+  /** Display value — pre-masked for sensitive fields (SSN, DOB). */
+  value: string;
+  /** 0–100. >=95 = high, 80–94 = medium, <80 = low. */
+  confidence: number;
+  /** Sensitive fields render with a lock and partial mask. */
+  masked?: boolean;
+  /** Reviewer state. */
+  state: "verified" | "needs-review" | "auto-extracted";
+};
+
+/** Image / structural / tamper / malware validation check (§20). */
+export type ValidationCheck = {
+  label: string;
+  result: "pass" | "fail" | "warn";
+  detail?: string;
+};
+
+/** Signature, counter-signature, date stamp, watermark (§20). */
+export type SignatureCheck = {
+  label: string;
+  result: "pass" | "fail" | "warn";
+  detail?: string;
+};
+
+/** Cross-document consistency match (§20). */
+export type CrossDocCheck = {
+  source: string;
+  field: string;
+  value: string;
+  match: "match" | "mismatch" | "missing";
+};
+
 export type Document = {
   id: string;
   candidateId: string;
@@ -40,6 +75,18 @@ export type Document = {
   version: number;
   fileSize?: string;
   rejectionReason?: string;
+  /** Mock file type for thumbnail badge. */
+  fileType?: "PDF" | "JPG" | "PNG" | "TIFF";
+  /** Mock page count for the document viewer (§113). */
+  pageCount?: number;
+  /** OCR + AI-extracted fields with per-field confidence (§20). */
+  extractedFields?: ExtractedField[];
+  /** Image quality, tamper, malware, format checks (§20). */
+  validation?: ValidationCheck[];
+  /** Signature detection results (§20). */
+  signatures?: SignatureCheck[];
+  /** Cross-document field consistency (§20). */
+  crossDoc?: CrossDocCheck[];
 };
 
 export const DOCUMENT_STATUS_META: Record<
@@ -84,7 +131,34 @@ export const DOCUMENTS: Document[] = [
     aiFlags: ["Blurry image", "Expiration date unreadable"],
     version: 1,
     fileSize: "1.2 MB",
+    fileType: "JPG",
+    pageCount: 1,
     rejectionReason: "Image quality too low to verify expiration date. Please retake with mobile camera in good lighting.",
+    extractedFields: [
+      { label: "Full Name",      value: "James M. Rivera",       confidence: 88, state: "needs-review" },
+      { label: "Date of Birth",  value: "•••-••-1987",           confidence: 71, masked: true, state: "needs-review" },
+      { label: "ID Number",      value: "D•••••4421",            confidence: 64, masked: true, state: "needs-review" },
+      { label: "Expiration",     value: "Unreadable",            confidence: 22, state: "needs-review" },
+      { label: "State",          value: "NY",                    confidence: 95, state: "auto-extracted" },
+    ],
+    validation: [
+      { label: "Image quality score",     result: "fail", detail: "31 / 100 — heavy motion blur" },
+      { label: "All 4 corners visible",   result: "warn", detail: "Bottom-right corner cropped" },
+      { label: "Text readable",           result: "fail", detail: "Expiration date OCR failed" },
+      { label: "Document type confirmed", result: "pass", detail: "US Driver License" },
+      { label: "Tamper evidence check",   result: "pass", detail: "No artifacts detected" },
+      { label: "Malware scan",            result: "pass" },
+    ],
+    signatures: [
+      { label: "Holder signature",  result: "pass", detail: "Detected on front (confidence 91%)" },
+      { label: "State seal",        result: "pass", detail: "Watermark present" },
+      { label: "Hologram",          result: "warn", detail: "Partially obscured by glare" },
+    ],
+    crossDoc: [
+      { source: "I-9 Form (DOC-2002)",        field: "Legal name",   value: "James Michael Rivera", match: "mismatch" },
+      { source: "I-9 Form (DOC-2002)",        field: "Date of birth", value: "Mar 14, 1987",        match: "match" },
+      { source: "Direct Deposit (DOC-2202)",  field: "Address",      value: "412 Hudson Ave, Bronx NY", match: "match" },
+    ],
   },
   {
     id: "DOC-2002",
@@ -99,6 +173,37 @@ export const DOCUMENTS: Document[] = [
     aiFlags: ["Section 2 incomplete"],
     version: 1,
     fileSize: "0.8 MB",
+    fileType: "PDF",
+    pageCount: 3,
+    extractedFields: [
+      { label: "Legal Name",        value: "James Michael Rivera", confidence: 98, state: "verified" },
+      { label: "Date of Birth",     value: "•••-••-1987",          confidence: 95, masked: true, state: "verified" },
+      { label: "Social Security",   value: "•••-••-4421",          confidence: 96, masked: true, state: "verified" },
+      { label: "Address",           value: "412 Hudson Ave, Bronx NY 10451", confidence: 92, state: "auto-extracted" },
+      { label: "Citizenship Status", value: "U.S. Citizen",         confidence: 99, state: "verified" },
+      { label: "Email",             value: "j.rivera@email.com",    confidence: 99, state: "verified" },
+    ],
+    validation: [
+      { label: "Image quality score",     result: "pass", detail: "94 / 100" },
+      { label: "All pages present",       result: "pass", detail: "3 of 3 pages" },
+      { label: "Text readable",           result: "pass" },
+      { label: "Document type confirmed", result: "pass", detail: "USCIS Form I-9 (Rev. 08/01/2023)" },
+      { label: "Section 2 complete",      result: "fail", detail: "Employer review fields blank" },
+      { label: "Tamper evidence check",   result: "pass", detail: "No artifacts detected" },
+      { label: "Malware scan",            result: "pass" },
+    ],
+    signatures: [
+      { label: "Candidate signature", result: "pass", detail: "Detected on page 1 (confidence 96%)" },
+      { label: "Counter-signature",   result: "fail", detail: "Missing — required for Section 2" },
+      { label: "Date stamp",          result: "pass", detail: "Jun 3, 2026" },
+      { label: "Witness signature",   result: "warn", detail: "Not required for this form" },
+    ],
+    crossDoc: [
+      { source: "Government ID (DOC-2001)",  field: "Legal name",   value: "James M. Rivera (ID) vs James Michael Rivera (I-9)", match: "mismatch" },
+      { source: "Government ID (DOC-2001)",  field: "Date of birth", value: "Mar 14, 1987",       match: "match" },
+      { source: "W-4 Federal (DOC-2202)",     field: "Address",      value: "412 Hudson Ave, Bronx NY", match: "match" },
+      { source: "W-4 Federal (DOC-2202)",     field: "SSN",          value: "•••-••-4421",         match: "match" },
+    ],
   },
   {
     id: "DOC-2003",
@@ -115,6 +220,33 @@ export const DOCUMENTS: Document[] = [
     aiFlags: [],
     version: 1,
     fileSize: "0.4 MB",
+    fileType: "PDF",
+    pageCount: 2,
+    extractedFields: [
+      { label: "Legal Name",          value: "Aisha N. Bello",       confidence: 99, state: "verified" },
+      { label: "Social Security",     value: "•••-••-8819",          confidence: 97, masked: true, state: "verified" },
+      { label: "Filing Status",       value: "Single",                confidence: 99, state: "verified" },
+      { label: "Dependents Claimed",  value: "0",                     confidence: 96, state: "verified" },
+      { label: "Additional Withhold", value: "$0.00",                 confidence: 99, state: "verified" },
+      { label: "Address",             value: "88 Bryant St, Boston MA 02118", confidence: 95, state: "verified" },
+    ],
+    validation: [
+      { label: "Image quality score",     result: "pass", detail: "97 / 100" },
+      { label: "Document type confirmed", result: "pass", detail: "IRS Form W-4 (2026)" },
+      { label: "Required fields present", result: "pass" },
+      { label: "Math validation",         result: "pass", detail: "Withholding calculations consistent" },
+      { label: "Tamper evidence check",   result: "pass" },
+      { label: "Malware scan",            result: "pass" },
+    ],
+    signatures: [
+      { label: "Employee signature", result: "pass", detail: "Detected (confidence 98%)" },
+      { label: "Date stamp",         result: "pass", detail: "May 30, 2026" },
+    ],
+    crossDoc: [
+      { source: "Government ID (DOC-2104)", field: "Legal name", value: "Aisha N. Bello",          match: "match" },
+      { source: "Client NDA (DOC-2004)",    field: "Legal name", value: "Aisha N. Bello",          match: "match" },
+      { source: "Government ID (DOC-2104)", field: "Address",    value: "88 Bryant St, Boston MA", match: "match" },
+    ],
   },
   {
     id: "DOC-2004",
@@ -147,7 +279,36 @@ export const DOCUMENTS: Document[] = [
     aiFlags: ["Routing number mismatch", "Bank name illegible"],
     version: 1,
     fileSize: "0.6 MB",
+    fileType: "PDF",
+    pageCount: 1,
     rejectionReason: "Routing number does not match bank name provided. Please resubmit with correct banking details.",
+    extractedFields: [
+      { label: "Account Holder",  value: "Marcus T. Webb",      confidence: 96, state: "verified" },
+      { label: "Bank Name",       value: "Illegible",            confidence: 41, state: "needs-review" },
+      { label: "Routing Number",  value: "•••••0021",            confidence: 78, masked: true, state: "needs-review" },
+      { label: "Account Number",  value: "•••••••4408",          confidence: 82, masked: true, state: "needs-review" },
+      { label: "Account Type",    value: "Checking",             confidence: 94, state: "auto-extracted" },
+      { label: "Address",         value: "210 Pinecrest Dr, Columbus OH 43215", confidence: 91, state: "verified" },
+    ],
+    validation: [
+      { label: "Image quality score",        result: "warn", detail: "62 / 100 — partial glare on routing block" },
+      { label: "Document type confirmed",    result: "pass", detail: "ACH Direct Deposit Authorization" },
+      { label: "Routing number checksum",    result: "fail", detail: "0210•••21 does not pass ABA checksum" },
+      { label: "Bank name <> routing match", result: "fail", detail: "Bank name unreadable — cannot verify" },
+      { label: "Voided check attached",      result: "warn", detail: "Attached but blurry" },
+      { label: "Tamper evidence check",      result: "pass" },
+      { label: "Malware scan",               result: "pass" },
+    ],
+    signatures: [
+      { label: "Employee signature", result: "pass", detail: "Detected (confidence 94%)" },
+      { label: "Date stamp",         result: "pass", detail: "Jun 1, 2026" },
+      { label: "Bank verification",  result: "fail", detail: "Penny-drop verification not yet attempted" },
+    ],
+    crossDoc: [
+      { source: "W-4 Federal (DOC-2305)",  field: "Legal name",   value: "Marcus T. Webb",            match: "match" },
+      { source: "W-4 Federal (DOC-2305)",  field: "Address",      value: "210 Pinecrest Dr, Columbus OH 43215", match: "match" },
+      { source: "I-9 Form (DOC-2306)",     field: "SSN",          value: "•••-••-7732",               match: "match" },
+    ],
   },
   {
     id: "DOC-2006",
@@ -265,7 +426,36 @@ export const DOCUMENTS: Document[] = [
     expiresDate: "Apr 12, 2026",
     version: 1,
     fileSize: "2.8 MB",
+    fileType: "JPG",
+    pageCount: 1,
     rejectionReason: "Passport expired April 12, 2026. A valid, unexpired document is required for I-9 verification.",
+    extractedFields: [
+      { label: "Full Name",       value: "Diego Alejandro Santos", confidence: 97, state: "verified" },
+      { label: "Date of Birth",   value: "•••-••-1992",            confidence: 96, masked: true, state: "verified" },
+      { label: "Passport Number", value: "A•••••8221",             confidence: 94, masked: true, state: "verified" },
+      { label: "Country",         value: "United States",          confidence: 99, state: "verified" },
+      { label: "Issue Date",      value: "Apr 13, 2016",           confidence: 95, state: "verified" },
+      { label: "Expiration",      value: "Apr 12, 2026",           confidence: 98, state: "needs-review" },
+    ],
+    validation: [
+      { label: "Image quality score",     result: "pass", detail: "92 / 100" },
+      { label: "All 4 corners visible",   result: "pass" },
+      { label: "MRZ readable",            result: "pass", detail: "Machine-readable zone parsed" },
+      { label: "Document type confirmed", result: "pass", detail: "US Passport Book" },
+      { label: "Expiration check",        result: "fail", detail: "Expired 56 days ago (Apr 12, 2026)" },
+      { label: "Tamper evidence check",   result: "pass", detail: "No artifacts detected" },
+      { label: "Malware scan",            result: "pass" },
+    ],
+    signatures: [
+      { label: "Holder signature", result: "pass", detail: "Detected on signature page (confidence 95%)" },
+      { label: "Issuing seal",     result: "pass", detail: "US Department of State watermark present" },
+      { label: "Hologram",         result: "pass", detail: "RFID chip readable" },
+    ],
+    crossDoc: [
+      { source: "I-9 Form (DOC-2401)",  field: "Legal name",  value: "Diego Alejandro Santos", match: "match" },
+      { source: "I-9 Form (DOC-2401)",  field: "Date of birth", value: "Jul 19, 1992",         match: "match" },
+      { source: "W-4 Federal (DOC-2402)", field: "SSN",         value: "•••-••-3318",         match: "match" },
+    ],
   },
   {
     id: "DOC-2014",
@@ -358,6 +548,36 @@ export const DOCUMENTS: Document[] = [
     expiresDate: "Mar 15, 2029",
     version: 1,
     fileSize: "2.2 MB",
+    fileType: "JPG",
+    pageCount: 1,
+    extractedFields: [
+      { label: "Full Name",     value: "Priya Sharma",        confidence: 97, state: "verified" },
+      { label: "Date of Birth", value: "•••-••-1994",         confidence: 96, masked: true, state: "verified" },
+      { label: "ID Number",     value: "S•••••2207",          confidence: 94, masked: true, state: "verified" },
+      { label: "Expiration",    value: "Mar 15, 2029",        confidence: 89, state: "verified" },
+      { label: "State",         value: "MA",                  confidence: 99, state: "verified" },
+      { label: "Address",       value: "12 Tremont St, Boston MA 02108", confidence: 93, state: "verified" },
+    ],
+    validation: [
+      { label: "Image quality score",     result: "pass", detail: "94 / 100" },
+      { label: "All 4 corners visible",   result: "pass" },
+      { label: "Text readable",           result: "pass" },
+      { label: "Expiration date detected", result: "pass", detail: "Mar 15, 2029 — valid for 33 more months" },
+      { label: "Document type confirmed", result: "pass", detail: "MA Driver License (REAL ID)" },
+      { label: "Tamper evidence check",   result: "pass", detail: "No artifacts detected" },
+      { label: "Malware scan",            result: "pass" },
+    ],
+    signatures: [
+      { label: "Holder signature", result: "pass", detail: "Detected (confidence 96%)" },
+      { label: "State seal",       result: "pass", detail: "MA RMV watermark present" },
+      { label: "Hologram",         result: "pass", detail: "Verified" },
+      { label: "REAL ID star",     result: "pass", detail: "Compliant" },
+    ],
+    crossDoc: [
+      { source: "W-4 Federal (DOC-2501)", field: "Legal name", value: "Priya Sharma",                match: "match" },
+      { source: "W-4 Federal (DOC-2501)", field: "Address",    value: "12 Tremont St, Boston MA",    match: "match" },
+      { source: "I-9 Form (DOC-2502)",    field: "Date of birth", value: "Aug 22, 1994",             match: "match" },
+    ],
   },
   {
     id: "DOC-2020",
