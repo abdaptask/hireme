@@ -47,6 +47,7 @@ import { StatTile } from "@/components/workspace/stat-tile";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { formatDateLong, now } from "@/lib/clock";
 import {
   CURRENT_ONBOARDER,
   getOnboarderCandidates,
@@ -817,6 +818,9 @@ export default function OnboarderWorkspacePage() {
   const [reminderToast] = useState<string | null>(null);
 
   const mine = getOnboarderCandidates();
+  const mostUrgent = mine
+    .filter((c) => c.risk === "at-risk" || c.risk === "unlikely")
+    .sort((a, b) => a.startInDays - b.startInDays)[0];
   const stageCounts = getStageCounts();
   const risks = getStartDateRisks();
 
@@ -863,17 +867,21 @@ export default function OnboarderWorkspacePage() {
           <div className="flex-1 min-w-0">
             <div className="mb-1.5 flex items-center gap-2">
               <p className="text-sm font-semibold">AI Morning Briefing</p>
-              <span className="text-metadata">Today, 8:47 AM</span>
+              <span className="text-metadata">{formatDateLong(now())}</span>
             </div>
             <p className="text-muted-foreground text-sm leading-relaxed">
               You have{" "}
               <span className="text-foreground font-medium">{mine.length} active onboardings</span>.{" "}
-              <span className="text-danger font-medium">{risks.length} start dates are at risk</span> — the most
-              urgent is{" "}
-              <Link href="/candidates/james-rivera" className="text-danger underline underline-offset-2">
-                James Rivera
-              </Link>{" "}
-              starting Jun 12.{" "}
+              <span className="text-danger font-medium">{risks.length} start dates are at risk</span>
+              {mostUrgent && (
+                <>
+                  {" "}— the most urgent is{" "}
+                  <Link href={`/candidates/${mostUrgent.id}`} className="text-danger underline underline-offset-2">
+                    {mostUrgent.name}
+                  </Link>{" "}
+                  starting {mostUrgent.startDateLabel}
+                </>
+              )}.{" "}
               <span className="text-warning font-medium">{docReviewCount} documents await review</span>.{" "}
               <span className="text-warning font-medium">2 background checks have exceeded SLA</span>.{" "}
               <span className="text-foreground font-medium">3 candidates have not responded in 48+ hours</span>.

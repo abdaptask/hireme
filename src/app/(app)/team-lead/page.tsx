@@ -40,11 +40,13 @@ import {
   TEAM_LEAD,
   type OwnerWorkload,
 } from "@/lib/ops-data";
+import { formatDate, now } from "@/lib/clock";
 import type { StatusTone } from "@/lib/types";
 
 /* ─── Static mock data for rich Team Lead workspace ─── */
 
-const TODAY = "Jun 7, 2026";
+// Computed at render — keeps the workspace's "as of" line current daily.
+const TODAY = formatDate(now(), { withYear: true });
 
 type Priority = "Critical" | "High" | "Medium";
 

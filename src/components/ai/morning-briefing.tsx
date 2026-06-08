@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getMorningBriefing } from "@/lib/ai";
+import { formatDateLong, now } from "@/lib/clock";
 
 type MorningBriefingProps = {
   className?: string;
@@ -64,12 +65,11 @@ export function MorningBriefing({ className }: MorningBriefingProps) {
 
   const briefing = getMorningBriefing();
 
-  const formattedDate = new Date(briefing.date).toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  // The briefing date is always "now" — ignore the persisted briefing.date
+  // field (legacy from when briefings were daily snapshots) and render the
+  // user's actual current date. Using formatDateLong + now() avoids the
+  // UTC-midnight-parses-to-previous-day-in-local-time bug.
+  const formattedDate = formatDateLong(now());
 
   return (
     <div
