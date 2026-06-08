@@ -18,6 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -177,7 +178,9 @@ export function AppHeader({ persona }: { persona: Persona }) {
             <Plus className="size-4.5" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuLabel>Create</DropdownMenuLabel>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Create</DropdownMenuLabel>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
             {quickCreate.map((q) => (
               <DropdownMenuItem
@@ -218,7 +221,9 @@ export function AppHeader({ persona }: { persona: Persona }) {
             <CircleHelp className="size-4.5" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuLabel>Help & support</DropdownMenuLabel>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Help & support</DropdownMenuLabel>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => setPaletteOpen(true)}>
               Command palette

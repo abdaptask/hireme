@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -41,7 +42,9 @@ export function WorkspaceSwitcher({ current }: { current: Persona }) {
         <ChevronsUpDown className="text-muted-foreground size-3.5" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-72">
-        <DropdownMenuLabel>Switch workspace</DropdownMenuLabel>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Switch workspace</DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         {PERSONAS.map((p) => (
           <DropdownMenuItem
