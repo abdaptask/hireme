@@ -11,6 +11,15 @@ bump delivers a new vertical slice from the spec ([docs/ROADMAP.md](docs/ROADMAP
 
 ## [Unreleased]
 
+### Added
+- **Persona Launchpad** — JobDiva-inspired category-grouped icon grid on every persona home (§5):
+  - 7 persona configs (Super Admin, Onboarder, Recruiter, Recruiting Manager, Team Lead, Account Manager, Candidate)
+  - 6 categories per workspace × 4-6 tiles per category
+  - Color-coded tones per category (green / blue / purple / orange / red / yellow)
+  - Live badge counts wired from the host page's data
+- **lib/clock.ts** — centralized date helpers (now, daysFromNow, daysAgo, hoursAgo, minutesAgo, relativeTime, formatDate, formatDateTime, startDateCountdown)
+- Replaced hardcoded date strings ("Jun 6, 3:14 PM", "Today, 9:02 AM") with dynamic relative computations across portal, candidates, audit, and notification center — the app no longer looks stale day-over-day
+
 ## [0.3.0] - 2026-06-08
 
 ### Added

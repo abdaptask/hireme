@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { daysAgo, hoursAgo, minutesAgo, relativeTime } from "@/lib/clock";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -50,7 +51,7 @@ const NOTIFICATIONS: Notification[] = [
     title: "James Rivera — Start date at risk",
     message:
       "Background check consent not submitted. Start date is 3 days away. Immediate action required.",
-    time: "2 min ago",
+    time: relativeTime(minutesAgo(2)),
     read: false,
   },
   {
@@ -60,7 +61,7 @@ const NOTIFICATIONS: Notification[] = [
     title: "W-9 rejected — Marcus Webb",
     message:
       "Entity name mismatch. Payroll cannot be activated until corrected.",
-    time: "15 min ago",
+    time: relativeTime(minutesAgo(15)),
     read: false,
   },
   {
@@ -70,7 +71,7 @@ const NOTIFICATIONS: Notification[] = [
     title: "Beeline VMS integration failed",
     message:
       "3 worker status updates failed to sync. Retry queue has 3 pending records.",
-    time: "1 hr ago",
+    time: relativeTime(hoursAgo(1)),
     read: false,
   },
   {
@@ -79,7 +80,7 @@ const NOTIFICATIONS: Notification[] = [
     category: "task",
     title: "SLA approaching — I-9 review",
     message: "Grace Okafor's I-9 Section 2 review is due in 4 hours.",
-    time: "2 hr ago",
+    time: relativeTime(hoursAgo(2)),
     read: false,
   },
   {
@@ -89,7 +90,7 @@ const NOTIFICATIONS: Notification[] = [
     title: "Package approved — Raj Patel",
     message:
       "Apex Dynamics onboarding package has been approved by Devon Hughes.",
-    time: "3 hr ago",
+    time: relativeTime(hoursAgo(3)),
     read: false,
   },
   {
@@ -99,7 +100,7 @@ const NOTIFICATIONS: Notification[] = [
     title: "AI recommendation — Lena Park",
     message:
       "Start date confidence score dropped to 71%. Equipment delivery at risk.",
-    time: "4 hr ago",
+    time: relativeTime(hoursAgo(4)),
     read: false,
   },
   {
@@ -109,7 +110,7 @@ const NOTIFICATIONS: Notification[] = [
     title: "Screening complete — Grace Okafor",
     message:
       "Sterling background check returned clear. No adverse findings.",
-    time: "Yesterday",
+    time: relativeTime(daysAgo(1)),
     read: true,
   },
   {
@@ -119,7 +120,7 @@ const NOTIFICATIONS: Notification[] = [
     title: "New candidate added — Aisha Bello",
     message:
       "Offer accepted. Package auto-generated. Onboarding started by Derek Okafor.",
-    time: "Yesterday",
+    time: relativeTime(daysAgo(1)),
     read: true,
   },
   {
@@ -129,7 +130,7 @@ const NOTIFICATIONS: Notification[] = [
     title: "Billing readiness gap — 2 candidates",
     message:
       "Marcus Webb and Raj Patel are missing PO numbers. Start dates approaching.",
-    time: "2 days ago",
+    time: relativeTime(daysAgo(2)),
     read: true,
   },
   {
@@ -139,7 +140,7 @@ const NOTIFICATIONS: Notification[] = [
     title: "AI bulk action completed",
     message:
       "Nudge sequence sent to 4 unresponsive candidates. All delivered successfully.",
-    time: "2 days ago",
+    time: relativeTime(daysAgo(2)),
     read: true,
   },
 ];

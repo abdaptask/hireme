@@ -18,9 +18,11 @@ import {
   ShieldCheck,
   User,
 } from "lucide-react";
+import { LaunchpadSection } from "@/components/launchpad/launchpad-section";
 import { ProgressRing } from "@/components/portal/progress-ring";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
+import { LAUNCHPADS } from "@/lib/launchpad";
 import { cn } from "@/lib/utils";
 import type { StatusTone } from "@/lib/types";
 import {
@@ -415,6 +417,9 @@ export default function PortalPage() {
           </div>
         </div>
       </Card>
+
+      {/* ── Quick Actions launchpad ── */}
+      <LaunchpadSection config={LAUNCHPADS.candidate} />
 
       {/* ── Task feed + right rail ── */}
       <div className="grid gap-4 lg:grid-cols-[1fr_240px]">

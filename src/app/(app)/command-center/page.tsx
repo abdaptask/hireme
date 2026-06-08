@@ -19,6 +19,8 @@ import {
   X,
 } from "lucide-react";
 import { PageContainer, PageHeader } from "@/components/page";
+import { LaunchpadSection } from "@/components/launchpad/launchpad-section";
+import { LAUNCHPADS } from "@/lib/launchpad";
 import { FilterBar } from "@/components/command-center/filter-bar";
 import { EventFeed } from "@/components/command-center/event-feed";
 import {
@@ -375,6 +377,9 @@ export default function CommandCenterPage() {
           </Badge>
         }
       />
+
+      {/* Persona Launchpad */}
+      <LaunchpadSection config={LAUNCHPADS["super-admin"]} />
 
       {/* AI Morning Briefing (§41.4) */}
       <MorningBriefing />
