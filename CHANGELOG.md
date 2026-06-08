@@ -11,6 +11,19 @@ bump delivers a new vertical slice from the spec ([docs/ROADMAP.md](docs/ROADMAP
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-08
+
+### Added
+- DB wiring for payroll, billing, screening, equipment, training, communications pages
+- Onboarding pipeline page — kanban-style stage view with Day -14 to Day +30 timeline
+- Audit Center — DB-backed event log, slide-over event detail, audit packet generator
+- Report drill-downs — every chart row clicks through to filtered records table
+- Saved views infrastructure — tables persist column/filter preferences in localStorage
+
+### Changed
+- All readiness pages (payroll, billing, screening, equipment, training, communications) now use server-component DB fetch with mock fallback
+- Live DB rows show ● green dot indicator
+
 ### Package Builder (§9, §102)
 
 - **`/packages` list** — each card now links to `/packages/[id]`, shows AI

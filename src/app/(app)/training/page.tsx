@@ -1,249 +1,49 @@
-"use client";
-
-import { useMemo, useState } from "react";
-import Link from "next/link";
-import {
-  BookOpen,
-  CheckCircle2,
-  Clock,
-  GraduationCap,
-  XCircle,
-} from "lucide-react";
+/**
+ * Training & Certifications — server component (§37).
+ * Fetches live training rows from Neon via Prisma and merges with mock data
+ * for any record whose id doesn't exist in the DB yet, so the page stays
+ * fully populated during the migration.
+ */
 import { PageContainer, PageHeader } from "@/components/page";
-import { StatTile } from "@/components/workspace/stat-tile";
-import { StatusBadge } from "@/components/status-badge";
-import { cn } from "@/lib/utils";
-import {
-  TRAINING_RECORDS,
-  TRAINING_STATUS_META,
-  trainingStats,
-} from "@/lib/training";
+import { Badge } from "@/components/ui/badge";
+import { TrainingClient } from "@/components/training/training-client";
+import { getDbTrainings } from "@/lib/db-training";
+import { TRAINING_RECORDS } from "@/lib/training";
 
-type FilterKey = "all" | "overdue" | "required";
+export const dynamic = "force-dynamic"; // always fresh — no stale cache
 
-const FILTERS: { key: FilterKey; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "overdue", label: "Overdue" },
-  { key: "required", label: "Required" },
-];
+export default async function TrainingPage() {
+  // 1. Fetch from DB — gracefully degrade to empty if connection fails
+  const dbTrainings = await getDbTrainings().catch((err) => {
+    console.error("[training] DB fetch failed:", err?.message);
+    return [];
+  });
 
-export default function TrainingPage() {
-  const stats = trainingStats();
-  const [filter, setFilter] = useState<FilterKey>("all");
+  // 2. Merge: DB rows are the source of truth; mock rows fill gaps for any
+  //    training id not yet in the DB.
+  const dbIds = new Set(dbTrainings.map((t) => t.id));
+  const mockOnly = TRAINING_RECORDS.filter((t) => !dbIds.has(t.id));
+  const merged = [...dbTrainings, ...mockOnly];
 
-  const rows = useMemo(() => {
-    switch (filter) {
-      case "overdue":
-        return TRAINING_RECORDS.filter((r) => r.status === "overdue");
-      case "required":
-        return TRAINING_RECORDS.filter((r) => r.required);
-      default:
-        return TRAINING_RECORDS;
-    }
-  }, [filter]);
+  const dbCount = dbTrainings.length;
+  const totalCount = merged.length;
 
   return (
     <PageContainer className="flex flex-col gap-6">
       <PageHeader
         title="Training & Certifications"
         description="Track course assignments, completion, scores, and certification expiry for all candidates (§37)."
+        actions={
+          <Badge variant="outline" className="tabular-nums">
+            {totalCount} records
+            {dbCount > 0 && (
+              <span className="text-success ml-1">· {dbCount} live</span>
+            )}
+          </Badge>
+        }
       />
 
-      {/* KPI tiles */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatTile
-          icon={CheckCircle2}
-          label="Completed"
-          value={stats.completed}
-          tone="success"
-        />
-        <StatTile
-          icon={BookOpen}
-          label="In progress"
-          value={stats.inProgress}
-          tone="info"
-        />
-        <StatTile
-          icon={Clock}
-          label="Overdue"
-          value={stats.overdue}
-          tone="danger"
-        />
-        <StatTile
-          icon={XCircle}
-          label="Failed"
-          value={stats.failed}
-          tone="danger"
-        />
-      </div>
-
-      {/* Table card */}
-      <section className="bg-card overflow-hidden rounded-xl border shadow-xs">
-        {/* Toolbar */}
-        <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2.5">
-          <h2 className="text-card-heading mr-auto">Training Records</h2>
-          <div className="flex items-center gap-1.5">
-            {FILTERS.map((f) => (
-              <button
-                key={f.key}
-                onClick={() => setFilter(f.key)}
-                className={cn(
-                  "rounded-md px-3 py-1 text-sm font-medium transition-colors",
-                  filter === f.key
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted",
-                )}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-          <span className="text-muted-foreground text-xs tabular-nums">
-            {rows.length} records
-          </span>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table
-            className="w-full border-collapse text-left"
-            style={{ fontSize: "var(--table-font)" }}
-          >
-            <thead className="text-muted-foreground border-b">
-              <tr>
-                {[
-                  "Course",
-                  "Category",
-                  "Candidate",
-                  "Client",
-                  "Due Date",
-                  "Status",
-                  "Score",
-                  "Attempts",
-                  "Required",
-                ].map((h) => (
-                  <th
-                    key={h}
-                    className="px-3 font-medium whitespace-nowrap"
-                    style={{ height: "var(--row-h)" }}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((record) => {
-                const meta = TRAINING_STATUS_META[record.status];
-                const isOverdue = record.status === "overdue";
-                return (
-                  <tr
-                    key={record.id}
-                    className={cn(
-                      "hover:bg-muted/50 border-b last:border-0",
-                      isOverdue && "bg-danger-muted/20",
-                    )}
-                  >
-                    {/* Course */}
-                    <td
-                      className="px-3 whitespace-nowrap"
-                      style={{ height: "var(--row-h)" }}
-                    >
-                      <span className="font-medium">{record.courseName}</span>
-                    </td>
-
-                    {/* Category */}
-                    <td
-                      className="text-muted-foreground px-3 whitespace-nowrap"
-                      style={{ height: "var(--row-h)" }}
-                    >
-                      {record.category}
-                    </td>
-
-                    {/* Candidate */}
-                    <td
-                      className="px-3 whitespace-nowrap"
-                      style={{ height: "var(--row-h)" }}
-                    >
-                      <Link
-                        href={`/candidates/${record.candidateId}`}
-                        className="text-primary hover:underline"
-                      >
-                        {record.candidateName}
-                      </Link>
-                    </td>
-
-                    {/* Client */}
-                    <td
-                      className="text-muted-foreground px-3 whitespace-nowrap"
-                      style={{ height: "var(--row-h)" }}
-                    >
-                      {record.client}
-                    </td>
-
-                    {/* Due Date */}
-                    <td
-                      className={cn(
-                        "px-3 font-mono text-xs whitespace-nowrap",
-                        isOverdue
-                          ? "text-danger font-semibold"
-                          : "text-muted-foreground",
-                      )}
-                      style={{ height: "var(--row-h)" }}
-                    >
-                      {record.dueDate}
-                    </td>
-
-                    {/* Status */}
-                    <td className="px-3" style={{ height: "var(--row-h)" }}>
-                      <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
-                    </td>
-
-                    {/* Score */}
-                    <td
-                      className="px-3 tabular-nums whitespace-nowrap"
-                      style={{ height: "var(--row-h)" }}
-                    >
-                      {record.score !== undefined ? (
-                        <span
-                          className={cn(
-                            "font-medium",
-                            record.score >= 80
-                              ? "text-success-muted-foreground"
-                              : record.score >= 60
-                                ? "text-warning-muted-foreground"
-                                : "text-danger-muted-foreground",
-                          )}
-                        >
-                          {record.score}%
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </td>
-
-                    {/* Attempts */}
-                    <td
-                      className="text-muted-foreground px-3 tabular-nums"
-                      style={{ height: "var(--row-h)" }}
-                    >
-                      {record.attempts}
-                    </td>
-
-                    {/* Required */}
-                    <td className="px-3" style={{ height: "var(--row-h)" }}>
-                      {record.required ? (
-                        <GraduationCap className="text-primary size-4" />
-                      ) : (
-                        <span className="text-muted-foreground text-xs">Optional</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <TrainingClient records={merged} />
     </PageContainer>
   );
 }

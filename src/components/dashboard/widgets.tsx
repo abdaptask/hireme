@@ -140,31 +140,56 @@ export function BarList({
   rows,
   tone = "info",
   formatValue,
+  onRowClick,
 }: {
   rows: { name: string; value: number; unit?: string; tone?: StatusTone }[];
   tone?: StatusTone;
   formatValue?: (v: number, unit?: string) => string;
+  /** When provided, each row becomes a clickable drill-down trigger (§7.1). */
+  onRowClick?: (name: string) => void;
 }) {
   const max = Math.max(...rows.map((r) => r.value), 1);
   return (
     <ul className="flex flex-col gap-2.5">
-      {rows.map((r) => (
-        <li key={r.name} className="flex items-center gap-3">
-          <span className="w-32 shrink-0 truncate text-sm">{r.name}</span>
-          <div className="bg-muted relative h-2 flex-1 overflow-hidden rounded-full">
-            <span
-              className={cn(
-                "absolute inset-y-0 left-0 rounded-full",
-                toneBar[r.tone ?? tone],
-              )}
-              style={{ width: `${Math.max((r.value / max) * 100, 4)}%` }}
-            />
-          </div>
-          <span className="text-muted-foreground w-12 shrink-0 text-right text-xs tabular-nums">
-            {formatValue ? formatValue(r.value, r.unit) : `${r.value}${r.unit ?? ""}`}
-          </span>
-        </li>
-      ))}
+      {rows.map((r) => {
+        const content = (
+          <>
+            <span className="w-32 shrink-0 truncate text-left text-sm">
+              {r.name}
+            </span>
+            <div className="bg-muted relative h-2 flex-1 overflow-hidden rounded-full">
+              <span
+                className={cn(
+                  "absolute inset-y-0 left-0 rounded-full",
+                  toneBar[r.tone ?? tone],
+                )}
+                style={{ width: `${Math.max((r.value / max) * 100, 4)}%` }}
+              />
+            </div>
+            <span className="text-muted-foreground w-12 shrink-0 text-right text-xs tabular-nums">
+              {formatValue
+                ? formatValue(r.value, r.unit)
+                : `${r.value}${r.unit ?? ""}`}
+            </span>
+          </>
+        );
+        return (
+          <li key={r.name}>
+            {onRowClick ? (
+              <button
+                type="button"
+                onClick={() => onRowClick(r.name)}
+                className="hover:bg-muted/50 focus-visible:ring-ring -mx-1.5 flex w-[calc(100%+0.75rem)] cursor-pointer items-center gap-3 rounded-md px-1.5 py-1 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                aria-label={`Drill into ${r.name}`}
+              >
+                {content}
+              </button>
+            ) : (
+              <div className="flex items-center gap-3">{content}</div>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }
