@@ -94,16 +94,48 @@ function writeAll(views: SavedView[]) {
   } catch {
     /* storage unavailable — best effort */
   }
+  // Local writes invalidate the snapshot cache so subsequent reads see fresh
+  // data. The custom event below also wakes any useSyncExternalStore subscribers.
+  invalidateSnapshotCache();
   // Same-tab + cross-tab notification (mirrors the pattern in use-stored.ts).
   window.dispatchEvent(new Event(`ls:${SAVED_VIEWS_STORAGE_KEY}`));
 }
 
+/* ---------------------------------------------------------------------------
+   Snapshot cache — REQUIRED so `useSyncExternalStore` callers get a stable
+   reference between renders. Without this, `getViews()` builds a new array
+   on every call and React's snapshot equality check fires the "result of
+   getSnapshot should be cached to avoid an infinite loop" warning.
+   --------------------------------------------------------------------------- */
+
+const viewsSnapshotCache = new Map<string, SavedView[]>();
+const defaultViewSnapshotCache = new Map<string, SavedView | undefined>();
+
+function invalidateSnapshotCache() {
+  viewsSnapshotCache.clear();
+  defaultViewSnapshotCache.clear();
+}
+
+// Cross-tab: when another tab writes to localStorage, our writeAll isn't
+// called locally, so wire a one-time module-level invalidator.
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (e) => {
+    if (e.key === null || e.key === SAVED_VIEWS_STORAGE_KEY) {
+      invalidateSnapshotCache();
+    }
+  });
+}
+
 /** All views for a table — presets first, then user views, newest first. */
 export function getViews(tableId: string): SavedView[] {
+  const cached = viewsSnapshotCache.get(tableId);
+  if (cached) return cached;
   const user = readAll().filter((v) => v.tableId === tableId);
   const presets = PRESET_VIEWS.filter((v) => v.tableId === tableId);
   const sortedUser = [...user].sort((a, b) => b.createdAt - a.createdAt);
-  return [...presets, ...sortedUser];
+  const result = [...presets, ...sortedUser];
+  viewsSnapshotCache.set(tableId, result);
+  return result;
 }
 
 /** Insert or update a view (matched by id). Presets are read-only. */
@@ -165,15 +197,22 @@ export function setDefault(id: string, tableId: string): void {
 
 /** Resolve the default view for a table, if any. */
 export function getDefaultView(tableId: string): SavedView | undefined {
+  if (defaultViewSnapshotCache.has(tableId)) {
+    return defaultViewSnapshotCache.get(tableId);
+  }
   const all = readAll();
   const marker = all.find(
     (v) => v.id === `default-marker:${tableId}` && v.isDefault,
   );
+  let result: SavedView | undefined;
   if (marker) {
-    const preset = PRESET_VIEWS.find((p) => p.id === marker.name);
-    if (preset) return preset;
+    result = PRESET_VIEWS.find((p) => p.id === marker.name);
   }
-  return all.find((v) => v.tableId === tableId && v.isDefault);
+  if (!result) {
+    result = all.find((v) => v.tableId === tableId && v.isDefault);
+  }
+  defaultViewSnapshotCache.set(tableId, result);
+  return result;
 }
 
 /** Stable id generator for new user views. */

@@ -42,6 +42,12 @@ import {
 } from "@/lib/saved-views";
 import { cn } from "@/lib/utils";
 
+// Module-level stable references for useSyncExternalStore's serverSnapshot.
+// Must be stable across calls or React fires "getSnapshot should be cached".
+const EMPTY_VIEWS: SavedView[] = [];
+const getEmptyViews = (): SavedView[] => EMPTY_VIEWS;
+const getUndefinedView = (): SavedView | undefined => undefined;
+
 type Props = {
   tableId: string;
   currentFilters: SavedViewFilters;
@@ -81,12 +87,12 @@ export function SavedViewsMenu({
   const views = useSyncExternalStore(
     subscribe,
     useCallback(() => getViews(tableId), [tableId]),
-    useCallback(() => [] as SavedView[], []),
+    getEmptyViews,
   );
   const defaultView = useSyncExternalStore(
     subscribe,
     useCallback(() => getDefaultView(tableId), [tableId]),
-    useCallback(() => undefined as SavedView | undefined, []),
+    getUndefinedView,
   );
 
   const handleApply = (view: SavedView) => {
