@@ -13,7 +13,7 @@
 
 export type LaunchpadCategoryId =
   | "primary"
-  | "records"
+  | "actions"
   | "operations"
   | "people"
   | "analytics"
@@ -25,7 +25,6 @@ export type LaunchpadCategoryId =
   | "reports"
   | "engagement"
   | "handoff"
-  | "tools"
   | "performance"
   | "forecast"
   | "admin"
@@ -94,19 +93,6 @@ export const LAUNCHPADS: Record<string, LaunchpadConfig> = {
         ],
       },
       {
-        id: "records",
-        label: "Records",
-        tone: "blue",
-        tiles: [
-          { label: "Candidates", href: "/candidates", icon: "Users" },
-          { label: "Consultants", href: "/consultants", icon: "Briefcase" },
-          { label: "Clients", href: "/clients", icon: "Building2" },
-          { label: "Packages", href: "/packages", icon: "Package" },
-          { label: "Documents", href: "/documents", icon: "FileText" },
-          { label: "Audit", href: "/audit", icon: "ShieldCheck" },
-        ],
-      },
-      {
         id: "operations",
         label: "Operations",
         tone: "purple",
@@ -117,19 +103,6 @@ export const LAUNCHPADS: Record<string, LaunchpadConfig> = {
           { label: "Comms", href: "/communications", icon: "MessageSquare" },
           { label: "Integrations", href: "/integrations", icon: "Plug" },
           { label: "AI Governance", href: "/planned/ai-governance", icon: "Bot" },
-        ],
-      },
-      {
-        id: "people",
-        label: "People",
-        tone: "orange",
-        tiles: [
-          { label: "Recruiters", href: "/recruiter", icon: "UserSearch" },
-          { label: "Onboarders", href: "/onboarder", icon: "UserCheck" },
-          { label: "Team Leads", href: "/team-lead", icon: "Crown" },
-          { label: "Account Mgrs", href: "/account-manager", icon: "Handshake" },
-          { label: "Pod Mgmt", href: "/recruiting-manager", icon: "UsersRound" },
-          { label: "Permissions", href: "/administration", icon: "Lock" },
         ],
       },
       {
@@ -165,16 +138,14 @@ export const LAUNCHPADS: Record<string, LaunchpadConfig> = {
     subtitle: "Move every onboarding forward today.",
     categories: [
       {
-        id: "myWork",
-        label: "My Work",
+        id: "actions",
+        label: "Quick actions",
         tone: "green",
         tiles: [
-          { label: "My Queue", href: "/my-work", icon: "Inbox", badgeKey: "myQueue" },
-          { label: "Action Required", href: "/my-work?filter=action", icon: "AlertCircle", badgeKey: "actionRequired" },
-          { label: "Document Review", href: "/documents", icon: "FileSearch", badgeKey: "docReview" },
-          { label: "Pending Approval", href: "/approvals", icon: "ClipboardCheck", badgeKey: "pendingApproval" },
-          { label: "At Risk", href: "/onboarder?filter=at-risk", icon: "AlertTriangle", badgeKey: "atRisk" },
-          { label: "In Review", href: "/my-work?filter=review", icon: "Eye" },
+          { label: "Generate Package", href: "/packages", icon: "Package" },
+          { label: "Bulk Remind", href: "/communications", icon: "Bell" },
+          { label: "Re-issue Form", href: "/documents", icon: "FileCheck" },
+          { label: "Send Message", href: "/communications", icon: "Send" },
         ],
       },
       {
@@ -229,7 +200,7 @@ export const LAUNCHPADS: Record<string, LaunchpadConfig> = {
         label: "Reports",
         tone: "yellow",
         tiles: [
-          { label: "My Productivity", href: "/reports/recruiter-performance", icon: "TrendingUp" },
+          { label: "My SLA Performance", href: "/reports", icon: "Gauge" },
           { label: "SLA Performance", href: "/reports", icon: "Clock" },
           { label: "Exception Resolution", href: "/exceptions", icon: "AlertOctagon" },
           { label: "Doc Aging", href: "/documents", icon: "FileText" },
@@ -244,15 +215,14 @@ export const LAUNCHPADS: Record<string, LaunchpadConfig> = {
     subtitle: "From offer accepted to fully onboarded.",
     categories: [
       {
-        id: "pipeline",
-        label: "Pipeline",
+        id: "actions",
+        label: "Quick actions",
         tone: "green",
         tiles: [
-          { label: "My Roster", href: "/recruiter", icon: "Users", badgeKey: "myRoster" },
-          { label: "Action Needed", href: "/recruiter?filter=action", icon: "AlertCircle", badgeKey: "actionNeeded" },
-          { label: "Starting Soon", href: "/recruiter?filter=starting-soon", icon: "PlayCircle", badgeKey: "startingSoon" },
-          { label: "Ready to Start", href: "/recruiter?filter=ready", icon: "CheckCircle", badgeKey: "readyToStart" },
-          { label: "Stalled", href: "/recruiter?filter=stalled", icon: "Pause" },
+          { label: "New Submission", href: "/planned/submissions", icon: "Send" },
+          { label: "Schedule Interview", href: "/planned/calendar", icon: "CalendarClock" },
+          { label: "Send Offer", href: "/planned/send-offer", icon: "FileSignature" },
+          { label: "Add Candidate", href: "/planned/candidates-new", icon: "UserPlus" },
         ],
       },
       {
@@ -286,7 +256,7 @@ export const LAUNCHPADS: Record<string, LaunchpadConfig> = {
         tiles: [
           { label: "Handoff Queue", href: "/my-work?filter=handoff", icon: "ArrowRightLeft" },
           { label: "Pre-Handoff Check", href: "/planned/handoff-check", icon: "ListChecks" },
-          { label: "Onboarder Status", href: "/onboarder", icon: "UserCheck" },
+          { label: "My Handoff Status", href: "/recruiter?filter=handoff", icon: "ArrowRightLeft" },
           { label: "Data Quality", href: "/reports", icon: "Database" },
         ],
       },
@@ -299,17 +269,6 @@ export const LAUNCHPADS: Record<string, LaunchpadConfig> = {
           { label: "Time-to-Onboard", href: "/reports/recruiter-performance", icon: "Clock" },
           { label: "Drop-off", href: "/reports/add-drop-reports", icon: "TrendingDown" },
           { label: "Satisfaction", href: "/reports/recruiter-performance", icon: "Heart" },
-        ],
-      },
-      {
-        id: "tools",
-        label: "Tools",
-        tone: "yellow",
-        tiles: [
-          { label: "Resume Parser", href: "/planned/resume-parser", icon: "FileText" },
-          { label: "AI Match", href: "/planned/ai-match", icon: "Zap" },
-          { label: "LinkedIn Lookup", href: "/planned/linkedin", icon: "AtSign" },
-          { label: "Email Templates", href: "/planned/templates", icon: "Mail" },
         ],
       },
     ],
@@ -384,8 +343,6 @@ export const LAUNCHPADS: Record<string, LaunchpadConfig> = {
         tiles: [
           { label: "Assign Cases", href: "/recruiting-manager", icon: "UserPlus" },
           { label: "Rebalance", href: "/recruiting-manager", icon: "Scale" },
-          { label: "Approve PTO", href: "/planned/pto", icon: "Calendar" },
-          { label: "Team Settings", href: "/administration", icon: "Settings" },
         ],
       },
     ],
@@ -396,17 +353,6 @@ export const LAUNCHPADS: Record<string, LaunchpadConfig> = {
     title: "Pod Launchpad",
     subtitle: "Lead your pod through today.",
     categories: [
-      {
-        id: "myWork",
-        label: "My Work",
-        tone: "green",
-        tiles: [
-          { label: "Pod Pipeline", href: "/team-lead", icon: "GitBranch", badgeKey: "podPipeline" },
-          { label: "Today's Priorities", href: "/team-lead", icon: "ListTodo", badgeKey: "todaysPriorities" },
-          { label: "At Risk", href: "/team-lead?filter=at-risk", icon: "AlertTriangle", badgeKey: "atRisk" },
-          { label: "Critical Issues", href: "/exceptions?severity=critical", icon: "AlertOctagon", badgeKey: "criticalIssues" },
-        ],
-      },
       {
         id: "team",
         label: "Team",
@@ -468,25 +414,26 @@ export const LAUNCHPADS: Record<string, LaunchpadConfig> = {
     subtitle: "Keep every client promise.",
     categories: [
       {
+        id: "actions",
+        label: "Quick actions",
+        tone: "green",
+        tiles: [
+          { label: "Compose Client Update", href: "/communications", icon: "Send" },
+          { label: "Generate Client Report", href: "/reports", icon: "FileText" },
+          { label: "Schedule Review", href: "/planned/calendar", icon: "CalendarClock" },
+          { label: "Log Promise", href: "/account-manager?tab=promises", icon: "Target" },
+        ],
+      },
+      {
         id: "clients",
         label: "Clients",
-        tone: "green",
+        tone: "blue",
         tiles: [
           { label: "My Clients", href: "/account-manager", icon: "Building2", badgeKey: "myClients" },
           { label: "Add Client", href: "/planned/clients-new", icon: "Building" },
           { label: "Search", href: "/clients", icon: "Search" },
           { label: "Client Health", href: "/account-manager", icon: "Activity" },
           { label: "Recently Contacted", href: "/account-manager", icon: "Phone" },
-        ],
-      },
-      {
-        id: "pipeline",
-        label: "Pipeline",
-        tone: "blue",
-        tiles: [
-          { label: "Client Pipeline", href: "/account-manager?tab=portfolio", icon: "GitBranch" },
-          { label: "Starting Soon", href: "/account-manager?tab=forecast", icon: "PlayCircle" },
-          { label: "At Risk Per Client", href: "/account-manager?tab=escalations", icon: "AlertTriangle" },
         ],
       },
       {
