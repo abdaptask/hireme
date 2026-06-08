@@ -4,6 +4,14 @@
  * Replaced by real candidate records once auth + sessions land (v0.3+).
  */
 import type { StatusTone } from "@/lib/types";
+import {
+  daysAgo,
+  daysFromNow,
+  formatDate,
+  hoursAgo,
+  minutesAgo,
+  relativeTime,
+} from "@/lib/clock";
 
 export type StageState = "completed" | "current" | "upcoming";
 
@@ -87,7 +95,7 @@ export const CANDIDATE = {
   client: "Meridian Health",
   employmentType: "W-2",
   location: "Remote · Austin, TX",
-  startDateLabel: "Mon, Jun 15",
+  startDateLabel: formatDate(daysFromNow(8)),
   startInDays: 8,
   progress: 38,
   currentStage: "Document Submission",
@@ -137,7 +145,7 @@ export const PORTAL_TASKS: PortalTask[] = [
     why: "Confirms your identity and work authorization (required for I-9).",
     impact: "Unblocks your I-9 form and background check start.",
     estimate: "1 min",
-    due: "Due Jun 9",
+    due: `Due ${formatDate(daysFromNow(2))}`,
     status: "rejected",
     ctaLabel: "Re-upload ID",
     aiHint: "Tip: Place your ID on a dark, flat surface in natural light. Tap to focus before capturing.",
@@ -159,7 +167,7 @@ export const PORTAL_TASKS: PortalTask[] = [
     why: "Federal law requires every new hire to verify employment eligibility before Day 1.",
     impact: "Required before your start date is confirmed.",
     estimate: "5 min",
-    due: "Due Jun 10",
+    due: `Due ${formatDate(daysFromNow(3))}`,
     status: "pending",
     ctaLabel: "Start I-9",
     aiHint: "Tip: You'll need your Social Security Number and the legal name that appears on your ID.",
@@ -172,7 +180,7 @@ export const PORTAL_TASKS: PortalTask[] = [
     why: "Required by your client before system access is provisioned.",
     impact: "Unlocks IT provisioning and client credentials.",
     estimate: "3 min",
-    due: "Due Jun 11",
+    due: `Due ${formatDate(daysFromNow(4))}`,
     status: "pending",
     ctaLabel: "Review & Sign",
     aiHint: "This is a standard mutual NDA. It covers confidentiality of patient data you may encounter in your role.",
@@ -185,7 +193,7 @@ export const PORTAL_TASKS: PortalTask[] = [
     why: "Ensures your first paycheck is deposited on your pay date.",
     impact: "Payroll cannot be activated without banking information on file.",
     estimate: "4 min",
-    due: "Due Jun 12",
+    due: `Due ${formatDate(daysFromNow(5))}`,
     status: "pending",
     ctaLabel: "Add bank info",
     aiHint: "You'll need your bank's routing number (9 digits) and your account number from a check or your banking app.",
@@ -198,7 +206,7 @@ export const PORTAL_TASKS: PortalTask[] = [
     why: "Determines how much federal income tax is withheld from your paycheck.",
     impact: "Reviewed by your onboarding team — typically takes 1–2 business days.",
     estimate: "Already submitted",
-    due: "Submitted Jun 5",
+    due: `Submitted ${formatDate(daysAgo(2))}`,
     status: "in-review",
   },
   {
@@ -208,7 +216,7 @@ export const PORTAL_TASKS: PortalTask[] = [
     title: "Background check consent",
     why: "Authorizes the client-required background screening.",
     estimate: "2 min",
-    due: "Completed Jun 4",
+    due: `Completed ${formatDate(daysAgo(3))}`,
     status: "completed",
   },
   {
@@ -218,7 +226,7 @@ export const PORTAL_TASKS: PortalTask[] = [
     title: "Profile & contact details",
     why: "Keeps your team able to reach you.",
     estimate: "3 min",
-    due: "Completed Jun 3",
+    due: `Completed ${formatDate(daysAgo(4))}`,
     status: "completed",
   },
 ];
@@ -269,7 +277,7 @@ export const COMMS: CommItem[] = [
     role: "automated",
     type: "reminder",
     message: "Hi Sarah — your government ID still needs to be re-uploaded. Start date is 8 days away. Tap here to fix it now.",
-    time: "Today, 9:02 AM",
+    time: relativeTime(minutesAgo(45)),
   },
   {
     id: "c2",
@@ -277,15 +285,15 @@ export const COMMS: CommItem[] = [
     role: "Onboarding Specialist",
     type: "message",
     message: "Hi Sarah — I reviewed your W-4 and it looks great, I'll have it approved by end of day. Your ID was rejected due to blur, please re-upload when you get a chance.",
-    time: "Jun 6, 3:14 PM",
+    time: relativeTime(hoursAgo(20)),
   },
   {
     id: "c1",
     from: "System",
     role: "automated",
     type: "system",
-    message: "Your onboarding package has been sent. You have 7 items to complete before June 15. Log in to your portal to get started.",
-    time: "Jun 3, 8:00 AM",
+    message: "Your onboarding package has been sent. You have 7 items to complete before your start date. Log in to your portal to get started.",
+    time: relativeTime(daysAgo(4)),
   },
 ];
 

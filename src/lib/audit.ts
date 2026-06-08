@@ -3,6 +3,30 @@
  * Every important action, override, AI event, and permission change is recorded.
  */
 import type { StatusTone } from "@/lib/types";
+import { daysFromNow, now } from "@/lib/clock";
+
+/** Build an audit timestamp string at `HH:MM:SS` today (locale-independent ISO-like). */
+function todayAt(hour: number, minute: number, second: number): string {
+  const d = now();
+  d.setHours(hour, minute, second, 0);
+  return formatAuditTimestamp(d);
+}
+
+/** Format a Date as `YYYY-MM-DD HH:MM:SS` using local time. */
+function formatAuditTimestamp(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ` +
+    `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  );
+}
+
+/** ISO date string (`YYYY-MM-DD`) for a day offset from today. */
+function isoDayOffset(offsetDays: number): string {
+  const d = daysFromNow(offsetDays);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
 
 export type AuditEventType =
   | "login"
@@ -52,7 +76,7 @@ export const EVENT_TYPE_META: Record<
 export const AUDIT_EVENTS: AuditEvent[] = [
   {
     id: "aud-0001",
-    timestamp: "2026-06-07 08:01:14",
+    timestamp: todayAt(8, 1, 14),
     eventType: "login",
     actor: "Riya Kim",
     actorRole: "Onboarder",
@@ -65,7 +89,7 @@ export const AUDIT_EVENTS: AuditEvent[] = [
   },
   {
     id: "aud-0002",
-    timestamp: "2026-06-07 08:05:22",
+    timestamp: todayAt(8, 5, 22),
     eventType: "record-view",
     actor: "Riya Kim",
     actorRole: "Onboarder",
@@ -78,7 +102,7 @@ export const AUDIT_EVENTS: AuditEvent[] = [
   },
   {
     id: "aud-0003",
-    timestamp: "2026-06-07 08:12:47",
+    timestamp: todayAt(8, 12, 47),
     eventType: "approval",
     actor: "Riya Kim",
     actorRole: "Onboarder",
@@ -91,15 +115,15 @@ export const AUDIT_EVENTS: AuditEvent[] = [
   },
   {
     id: "aud-0004",
-    timestamp: "2026-06-07 08:23:11",
+    timestamp: todayAt(8, 23, 11),
     eventType: "override",
     actor: "Jordan Lee",
     actorRole: "Super Admin",
     target: "Owen Bradley / Start Date",
     targetType: "Assignment",
     action: "Overrode start date",
-    previousValue: "2026-06-09",
-    newValue: "2026-06-16",
+    previousValue: isoDayOffset(2),
+    newValue: isoDayOffset(9),
     ipAddress: "10.0.0.5",
     aiInvolved: false,
     severity: "warning",
@@ -107,7 +131,7 @@ export const AUDIT_EVENTS: AuditEvent[] = [
   },
   {
     id: "aud-0005",
-    timestamp: "2026-06-07 08:31:05",
+    timestamp: todayAt(8, 31, 5),
     eventType: "ai-action",
     actor: "AI Copilot",
     actorRole: "System",
@@ -121,7 +145,7 @@ export const AUDIT_EVENTS: AuditEvent[] = [
   },
   {
     id: "aud-0006",
-    timestamp: "2026-06-07 08:45:30",
+    timestamp: todayAt(8, 45, 30),
     eventType: "record-edit",
     actor: "Sasha Patel",
     actorRole: "Recruiter",
@@ -137,7 +161,7 @@ export const AUDIT_EVENTS: AuditEvent[] = [
   },
   {
     id: "aud-0007",
-    timestamp: "2026-06-07 09:02:18",
+    timestamp: todayAt(9, 2, 18),
     eventType: "export",
     actor: "Jordan Lee",
     actorRole: "Super Admin",
@@ -151,7 +175,7 @@ export const AUDIT_EVENTS: AuditEvent[] = [
   },
   {
     id: "aud-0008",
-    timestamp: "2026-06-07 09:15:44",
+    timestamp: todayAt(9, 15, 44),
     eventType: "permission-change",
     actor: "Jordan Lee",
     actorRole: "Super Admin",
@@ -167,7 +191,7 @@ export const AUDIT_EVENTS: AuditEvent[] = [
   },
   {
     id: "aud-0009",
-    timestamp: "2026-06-07 09:28:00",
+    timestamp: todayAt(9, 28, 0),
     eventType: "document-download",
     actor: "Sasha Patel",
     actorRole: "Recruiter",
@@ -180,7 +204,7 @@ export const AUDIT_EVENTS: AuditEvent[] = [
   },
   {
     id: "aud-0010",
-    timestamp: "2026-06-07 09:44:12",
+    timestamp: todayAt(9, 44, 12),
     eventType: "integration-event",
     actor: "System",
     actorRole: "Integration",
@@ -194,7 +218,7 @@ export const AUDIT_EVENTS: AuditEvent[] = [
   },
   {
     id: "aud-0011",
-    timestamp: "2026-06-07 10:00:55",
+    timestamp: todayAt(10, 0, 55),
     eventType: "ai-action",
     actor: "AI Copilot",
     actorRole: "System",
@@ -208,7 +232,7 @@ export const AUDIT_EVENTS: AuditEvent[] = [
   },
   {
     id: "aud-0012",
-    timestamp: "2026-06-07 10:14:33",
+    timestamp: todayAt(10, 14, 33),
     eventType: "approval",
     actor: "Jordan Lee",
     actorRole: "Super Admin",
@@ -222,7 +246,7 @@ export const AUDIT_EVENTS: AuditEvent[] = [
   },
   {
     id: "aud-0013",
-    timestamp: "2026-06-07 10:30:00",
+    timestamp: todayAt(10, 30, 0),
     eventType: "override",
     actor: "Jordan Lee",
     actorRole: "Super Admin",
@@ -238,22 +262,22 @@ export const AUDIT_EVENTS: AuditEvent[] = [
   },
   {
     id: "aud-0014",
-    timestamp: "2026-06-07 10:47:22",
+    timestamp: todayAt(10, 47, 22),
     eventType: "record-edit",
     actor: "Riya Kim",
     actorRole: "Onboarder",
     target: "Sarah Chen / Start Date",
     targetType: "Assignment",
     action: "Updated start date",
-    previousValue: "2026-06-10",
-    newValue: "2026-06-12",
+    previousValue: isoDayOffset(3),
+    newValue: isoDayOffset(5),
     ipAddress: "192.168.1.42",
     aiInvolved: false,
     severity: "info",
   },
   {
     id: "aud-0015",
-    timestamp: "2026-06-07 11:02:09",
+    timestamp: todayAt(11, 2, 9),
     eventType: "ai-action",
     actor: "AI Copilot",
     actorRole: "System",
@@ -267,7 +291,7 @@ export const AUDIT_EVENTS: AuditEvent[] = [
   },
   {
     id: "aud-0016",
-    timestamp: "2026-06-07 11:20:45",
+    timestamp: todayAt(11, 20, 45),
     eventType: "record-view",
     actor: "Jordan Lee",
     actorRole: "Super Admin",
@@ -281,7 +305,7 @@ export const AUDIT_EVENTS: AuditEvent[] = [
   },
   {
     id: "aud-0017",
-    timestamp: "2026-06-07 11:38:00",
+    timestamp: todayAt(11, 38, 0),
     eventType: "integration-event",
     actor: "System",
     actorRole: "Integration",
@@ -294,7 +318,7 @@ export const AUDIT_EVENTS: AuditEvent[] = [
   },
   {
     id: "aud-0018",
-    timestamp: "2026-06-07 11:55:14",
+    timestamp: todayAt(11, 55, 14),
     eventType: "permission-change",
     actor: "Jordan Lee",
     actorRole: "Super Admin",
@@ -310,7 +334,7 @@ export const AUDIT_EVENTS: AuditEvent[] = [
   },
   {
     id: "aud-0019",
-    timestamp: "2026-06-07 12:10:30",
+    timestamp: todayAt(12, 10, 30),
     eventType: "document-download",
     actor: "Jordan Lee",
     actorRole: "Super Admin",
@@ -324,7 +348,7 @@ export const AUDIT_EVENTS: AuditEvent[] = [
   },
   {
     id: "aud-0020",
-    timestamp: "2026-06-07 12:30:00",
+    timestamp: todayAt(12, 30, 0),
     eventType: "approval",
     actor: "Riya Kim",
     actorRole: "Onboarder",
@@ -337,7 +361,7 @@ export const AUDIT_EVENTS: AuditEvent[] = [
   },
   {
     id: "aud-0021",
-    timestamp: "2026-06-07 13:05:17",
+    timestamp: todayAt(13, 5, 17),
     eventType: "ai-action",
     actor: "AI Copilot",
     actorRole: "System",
@@ -351,7 +375,7 @@ export const AUDIT_EVENTS: AuditEvent[] = [
   },
   {
     id: "aud-0022",
-    timestamp: "2026-06-07 13:22:48",
+    timestamp: todayAt(13, 22, 48),
     eventType: "record-edit",
     actor: "Sasha Patel",
     actorRole: "Recruiter",
@@ -367,7 +391,7 @@ export const AUDIT_EVENTS: AuditEvent[] = [
   },
   {
     id: "aud-0023",
-    timestamp: "2026-06-07 13:45:00",
+    timestamp: todayAt(13, 45, 0),
     eventType: "integration-event",
     actor: "System",
     actorRole: "Integration",
@@ -380,7 +404,7 @@ export const AUDIT_EVENTS: AuditEvent[] = [
   },
   {
     id: "aud-0024",
-    timestamp: "2026-06-07 14:01:33",
+    timestamp: todayAt(14, 1, 33),
     eventType: "export",
     actor: "Sasha Patel",
     actorRole: "Recruiter",
@@ -393,7 +417,7 @@ export const AUDIT_EVENTS: AuditEvent[] = [
   },
   {
     id: "aud-0025",
-    timestamp: "2026-06-07 14:23:11",
+    timestamp: todayAt(14, 23, 11),
     eventType: "override",
     actor: "Jordan Lee",
     actorRole: "Super Admin",
@@ -405,7 +429,7 @@ export const AUDIT_EVENTS: AuditEvent[] = [
     ipAddress: "10.0.0.5",
     aiInvolved: false,
     severity: "critical",
-    notes: "Approved by VP Operations; expiration 2026-06-21; audit evidence attached",
+    notes: `Approved by VP Operations; expiration ${isoDayOffset(14)}; audit evidence attached`,
   },
 ];
 
