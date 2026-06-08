@@ -32,7 +32,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MorningBriefing } from "@/components/ai/morning-briefing";
 import { RecommendationCard } from "@/components/ai/recommendation-card";
+import {
+  DrillDownSheet,
+  type DrillDownColumn,
+} from "@/components/reports/drill-down-sheet";
 import { getRecommendations } from "@/lib/ai";
+import { CANDIDATES, type CandidateSummary } from "@/lib/candidates";
 import {
   ANNIVERSARIES,
   BIRTHDAYS,
@@ -187,24 +192,50 @@ const SEVERITY_TONE: Record<ExceptionItem["severity"], { badge: string; count: s
   Low:      { badge: "bg-neutral/10 text-muted-foreground", count: "text-muted-foreground" },
 };
 
-function ExceptionGroup({ severity, items }: { severity: ExceptionItem["severity"]; items: ExceptionItem[] }) {
+function ExceptionGroup({
+  severity,
+  items,
+  onDrillDown,
+}: {
+  severity: ExceptionItem["severity"];
+  items: ExceptionItem[];
+  onDrillDown?: (severity: ExceptionItem["severity"]) => void;
+}) {
   const [open, setOpen] = useState(severity === "Critical" || severity === "High");
   const t = SEVERITY_TONE[severity];
   return (
     <div>
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2 py-1.5 text-left"
-        aria-expanded={open}
-      >
-        <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase", t.badge)}>
-          {severity}
-        </span>
-        <span className={cn("text-xs font-semibold tabular-nums", t.count)}>
+      <div className="flex w-full items-center gap-2 py-1.5">
+        <button
+          type="button"
+          onClick={() => onDrillDown?.(severity)}
+          className="hover:opacity-80 focus-visible:ring-ring rounded-full transition-opacity focus-visible:ring-2 focus-visible:outline-none"
+          aria-label={`Drill into ${severity} exceptions`}
+        >
+          <span className={cn("inline-block cursor-pointer rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase", t.badge)}>
+            {severity}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onDrillDown?.(severity)}
+          className={cn(
+            "hover:underline text-xs font-semibold tabular-nums cursor-pointer",
+            t.count,
+          )}
+        >
           {items.length}
-        </span>
-        <ChevronDown className={cn("ml-auto size-3.5 text-muted-foreground transition-transform", open && "rotate-180")} />
-      </button>
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="ml-auto"
+          aria-expanded={open}
+          aria-label={`Toggle ${severity} list`}
+        >
+          <ChevronDown className={cn("size-3.5 text-muted-foreground transition-transform", open && "rotate-180")} />
+        </button>
+      </div>
       {open && (
         <ul className="mb-1 flex flex-col gap-1">
           {items.map((ex) => (
@@ -243,14 +274,94 @@ const INT_STATUS_CLASSES: Record<IntegrationStatus["status"], string> = {
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
+type DrillState =
+  | { kind: "stage"; value: string }
+  | { kind: "client"; value: string }
+  | { kind: "severity"; value: ExceptionItem["severity"] }
+  | null;
+
+const CANDIDATE_COLUMNS: DrillDownColumn<CandidateSummary>[] = [
+  {
+    key: "name",
+    label: "Candidate",
+    accessor: (r) => <span className="font-medium">{r.name}</span>,
+    sortValue: (r) => r.name,
+  },
+  { key: "role", label: "Role", accessor: (r) => r.role, sortValue: (r) => r.role },
+  { key: "client", label: "Client", accessor: (r) => r.client, sortValue: (r) => r.client },
+  { key: "stage", label: "Stage", accessor: (r) => r.stage, sortValue: (r) => r.stage },
+  {
+    key: "startDate",
+    label: "Start",
+    accessor: (r) => r.startDateLabel,
+    sortValue: (r) => r.startInDays,
+    align: "right",
+  },
+  {
+    key: "owner",
+    label: "Onboarder",
+    accessor: (r) => r.onboarder,
+    sortValue: (r) => r.onboarder,
+  },
+];
+
+const EXCEPTION_COLUMNS: DrillDownColumn<ExceptionItem>[] = [
+  { key: "id", label: "ID", accessor: (r) => r.id, sortValue: (r) => r.id },
+  { key: "type", label: "Issue", accessor: (r) => r.type, sortValue: (r) => r.type },
+  {
+    key: "candidate",
+    label: "Candidate",
+    accessor: (r) => r.candidate,
+    sortValue: (r) => r.candidate,
+  },
+  { key: "age", label: "Age", accessor: (r) => r.age, sortValue: (r) => r.age, align: "right" },
+  {
+    key: "assignee",
+    label: "Assignee",
+    accessor: (r) => r.assignee,
+    sortValue: (r) => r.assignee,
+  },
+];
+
 export default function CommandCenterPage() {
   const [liveExpanded, setLiveExpanded] = useState(true);
   const [dismissedRecs, setDismissedRecs] = useState<Set<string>>(new Set());
+  const [drill, setDrill] = useState<DrillState>(null);
   const topRecommendations = getRecommendations("super-admin").slice(0, 3);
 
   // Group exceptions by severity
   const severities: ExceptionItem["severity"][] = ["Critical", "High", "Medium", "Low"];
   const excBySeverity = (s: ExceptionItem["severity"]) => EXCEPTIONS.filter((e) => e.severity === s);
+
+  // Drill-down content resolves from the live dataset for the current dimension.
+  const drillContent = (() => {
+    if (!drill) return null;
+    if (drill.kind === "stage") {
+      const rows = CANDIDATES.filter((c) => c.stage === drill.value);
+      return {
+        title: `Stage: ${drill.value}`,
+        description: `Candidates currently in the ${drill.value} stage.`,
+        columns: CANDIDATE_COLUMNS,
+        rows,
+      };
+    }
+    if (drill.kind === "client") {
+      const rows = CANDIDATES.filter((c) => c.client === drill.value);
+      return {
+        title: `Client: ${drill.value}`,
+        description: `Active candidates assigned to ${drill.value}.`,
+        columns: CANDIDATE_COLUMNS,
+        rows,
+      };
+    }
+    const rows = excBySeverity(drill.value);
+    return {
+      title: `${drill.value} exceptions`,
+      description: `Open exceptions at ${drill.value.toLowerCase()} severity.`,
+      columns: EXCEPTION_COLUMNS,
+      rows,
+    };
+  })();
 
   return (
     <PageContainer className="flex flex-col gap-6">
@@ -302,13 +413,14 @@ export default function CommandCenterPage() {
         <SectionLabel>Pipeline & Risk</SectionLabel>
         <div className="grid gap-4 lg:grid-cols-3">
           {/* Pipeline by Stage */}
-          <WidgetCard title="Pipeline by Stage" description="Active candidates per stage">
+          <WidgetCard title="Pipeline by Stage" description="Active candidates per stage · click a stage to drill in">
             <BarList
               rows={PIPELINE_BY_STAGE.map((s) => ({
                 name: s.stage,
                 value: s.count,
               }))}
               tone="info"
+              onRowClick={(name) => setDrill({ kind: "stage", value: name })}
             />
           </WidgetCard>
 
@@ -333,11 +445,15 @@ export default function CommandCenterPage() {
           </WidgetCard>
 
           {/* Client Bottleneck Ranking */}
-          <WidgetCard title="Client Bottleneck Ranking" description="Avg days stalled per client">
+          <WidgetCard
+            title="Client Bottleneck Ranking"
+            description="Avg days stalled per client · click a client to drill in"
+          >
             <BarList
               rows={CLIENT_BOTTLENECKS}
               tone="danger"
               formatValue={(v, u) => `${v}${u ?? ""}`}
+              onRowClick={(name) => setDrill({ kind: "client", value: name })}
             />
           </WidgetCard>
 
@@ -419,7 +535,12 @@ export default function CommandCenterPage() {
           >
             <div className="flex flex-col divide-y">
               {severities.map((s) => (
-                <ExceptionGroup key={s} severity={s} items={excBySeverity(s)} />
+                <ExceptionGroup
+                  key={s}
+                  severity={s}
+                  items={excBySeverity(s)}
+                  onDrillDown={(sev) => setDrill({ kind: "severity", value: sev })}
+                />
               ))}
             </div>
           </WidgetCard>
@@ -681,6 +802,20 @@ export default function CommandCenterPage() {
 
       {/* ── BOTTOM: FULL GRANULAR LINE-ITEM FEED ── */}
       <EventFeed />
+
+      {/* Drill-down sheet — opens when any chart row is clicked (§7.1, §50). */}
+      {drillContent && (
+        <DrillDownSheet
+          open={drill !== null}
+          onOpenChange={(o) => {
+            if (!o) setDrill(null);
+          }}
+          title={drillContent.title}
+          description={drillContent.description}
+          columns={drillContent.columns as DrillDownColumn<unknown>[]}
+          rows={drillContent.rows as unknown[]}
+        />
+      )}
     </PageContainer>
   );
 }
