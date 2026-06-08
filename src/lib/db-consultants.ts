@@ -134,14 +134,15 @@ export async function getDbConsultantFull(id: string) {
       },
       auditEvents: {
         orderBy: { timestamp: "desc" },
-        take: 20,
+        take: 50,
       },
     },
   });
   if (!consultant) return null;
 
-  // Documents and communications are created during the onboarding phase,
-  // so they hang off the originating Candidate. Resolve via the email join.
+  // Documents, communications, screenings, payroll, billing, equipment, training,
+  // and onboarding-period audit events all hang off the originating Candidate.
+  // Resolve via the email join.
   const candidate = consultant.email
     ? await db.candidate
         .findUnique({
@@ -149,16 +150,42 @@ export async function getDbConsultantFull(id: string) {
           include: {
             documents: { orderBy: { uploadedAt: "desc" } },
             communications: { orderBy: { sentAt: "desc" } },
+            screenings: { orderBy: { createdAt: "desc" } },
+            equipment: { orderBy: { createdAt: "desc" } },
+            training: { orderBy: { createdAt: "desc" } },
+            payroll: true,
+            billing: true,
+            auditEvents: { orderBy: { timestamp: "desc" }, take: 50 },
           },
         })
         .catch(() => null)
     : null;
+
+  // Merge consultant-period and candidate-period audit events, dedupe, sort.
+  const mergedAuditMap = new Map<string, (typeof consultant.auditEvents)[number]>();
+  for (const ev of consultant.auditEvents) mergedAuditMap.set(ev.id, ev);
+  for (const ev of candidate?.auditEvents ?? []) {
+    if (!mergedAuditMap.has(ev.id)) mergedAuditMap.set(ev.id, ev);
+  }
+  const auditEvents = Array.from(mergedAuditMap.values())
+    .sort((a, b) => {
+      const at = a.timestamp ? a.timestamp.getTime() : 0;
+      const bt = b.timestamp ? b.timestamp.getTime() : 0;
+      return bt - at;
+    })
+    .slice(0, 100);
 
   return {
     ...consultant,
     candidateId: candidate?.id ?? null,
     documents: candidate?.documents ?? [],
     communications: candidate?.communications ?? [],
+    screenings: candidate?.screenings ?? [],
+    equipment: candidate?.equipment ?? [],
+    training: candidate?.training ?? [],
+    payroll: candidate?.payroll ?? null,
+    billing: candidate?.billing ?? null,
+    auditEvents,
   };
 }
 
