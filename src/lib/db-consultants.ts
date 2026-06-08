@@ -123,7 +123,7 @@ export async function getDbConsultants(): Promise<Consultant[]> {
 // ─────────────────────────────────────────────────────────
 
 export async function getDbConsultantFull(id: string) {
-  return db.consultant.findUnique({
+  const consultant = await db.consultant.findUnique({
     where: { id },
     include: {
       assignments: {
@@ -138,6 +138,28 @@ export async function getDbConsultantFull(id: string) {
       },
     },
   });
+  if (!consultant) return null;
+
+  // Documents and communications are created during the onboarding phase,
+  // so they hang off the originating Candidate. Resolve via the email join.
+  const candidate = consultant.email
+    ? await db.candidate
+        .findUnique({
+          where: { email: consultant.email },
+          include: {
+            documents: { orderBy: { uploadedAt: "desc" } },
+            communications: { orderBy: { sentAt: "desc" } },
+          },
+        })
+        .catch(() => null)
+    : null;
+
+  return {
+    ...consultant,
+    candidateId: candidate?.id ?? null,
+    documents: candidate?.documents ?? [],
+    communications: candidate?.communications ?? [],
+  };
 }
 
 /** Maps a full DB consultant to the UI Consultant type. */

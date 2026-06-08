@@ -15,9 +15,13 @@ import {
   CheckCircle2,
   Clock,
   DollarSign,
+  FileSearch,
+  FileText,
+  Globe,
   Handshake,
   Mail,
   MapPin,
+  MessageSquare,
   Phone,
   Star,
   Tag,
@@ -41,6 +45,21 @@ import {
   type DbConsultantFull,
 } from "@/lib/db-consultants";
 import { relativeTime } from "@/lib/db-candidates";
+import {
+  DOCUMENTS,
+  DOCUMENT_CATEGORY_META,
+  DOCUMENT_STATUS_META,
+  type Document as MockDocument,
+  type DocumentCategory,
+} from "@/lib/documents";
+import {
+  COMMUNICATIONS,
+  CHANNEL_META,
+  COMM_STATUS_META,
+  type CommChannel,
+  type CommunicationRecord,
+} from "@/lib/communications";
+import type { StatusTone } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 // ─────────────────────────────────────────────────────────
@@ -348,6 +367,518 @@ function MockLifecycle({ c }: { c: Consultant }) {
 }
 
 // ─────────────────────────────────────────────────────────
+// Documents tab — shared helpers
+// ─────────────────────────────────────────────────────────
+
+const DB_DOC_STATUS_TONE: Record<string, StatusTone> = {
+  APPROVED: "success",
+  REJECTED: "danger",
+  CORRECTION_REQUIRED: "danger",
+  SUBMITTED: "info",
+  AI_REVIEW: "info",
+  PENDING: "neutral",
+  EXPIRED: "warning",
+};
+
+const DB_DOC_STATUS_LABEL: Record<string, string> = {
+  APPROVED: "Approved",
+  REJECTED: "Rejected",
+  CORRECTION_REQUIRED: "Correction Required",
+  SUBMITTED: "Submitted",
+  AI_REVIEW: "AI Review",
+  PENDING: "Pending",
+  EXPIRED: "Expired",
+};
+
+function aiScoreTone(score: number | null | undefined): string {
+  if (score == null) return "bg-muted text-muted-foreground";
+  if (score >= 95) return "bg-success-muted text-success-muted-foreground";
+  if (score >= 80) return "bg-warning-muted text-warning-muted-foreground";
+  return "bg-danger-muted text-danger-muted-foreground";
+}
+
+const CATEGORY_FALLBACK_COLOR =
+  "bg-neutral-muted text-neutral-muted-foreground";
+
+function categoryBadgeClass(category: string | null | undefined): string {
+  if (!category) return CATEGORY_FALLBACK_COLOR;
+  const key = category.toLowerCase() as DocumentCategory;
+  return DOCUMENT_CATEGORY_META[key]?.color ?? CATEGORY_FALLBACK_COLOR;
+}
+
+function categoryLabel(category: string | null | undefined): string {
+  if (!category) return "—";
+  const key = category.toLowerCase() as DocumentCategory;
+  return DOCUMENT_CATEGORY_META[key]?.label ?? category;
+}
+
+function fmtDateOnly(d: Date | string | null | undefined): string {
+  if (!d) return "—";
+  const date = typeof d === "string" ? new Date(d) : d;
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+// ─────────────────────────────────────────────────────────
+// DB-backed Documents tab
+// ─────────────────────────────────────────────────────────
+
+function DbDocuments({
+  documents,
+}: {
+  documents: DbConsultantFull["documents"];
+}) {
+  if (!documents.length) {
+    return (
+      <div className="text-muted-foreground rounded-xl border border-dashed py-10 text-center text-sm">
+        <FileSearch className="text-muted-foreground mx-auto mb-2 size-6" />
+        No documents have been recorded for this consultant yet.
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-card overflow-hidden rounded-xl border shadow-xs">
+      <div className="border-b px-4 py-3">
+        <h3 className="text-card-heading">Documents from onboarding</h3>
+        <p className="text-metadata mt-0.5">
+          Submitted during the candidate phase · {documents.length} record
+          {documents.length !== 1 ? "s" : ""}
+        </p>
+      </div>
+      <div className="overflow-x-auto">
+        <table
+          className="w-full border-collapse text-left"
+          style={{ fontSize: "var(--table-font)" }}
+        >
+          <thead>
+            <tr className="text-muted-foreground border-b">
+              {[
+                "Document",
+                "Category",
+                "Status",
+                "AI Score",
+                "Uploaded",
+                "Reviewed by",
+                "",
+              ].map((h, i) => (
+                <th
+                  key={i}
+                  className="px-4 font-medium whitespace-nowrap"
+                  style={{ height: "var(--row-h)" }}
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {documents.map((d) => {
+              const tone = DB_DOC_STATUS_TONE[d.status] ?? "neutral";
+              const label = DB_DOC_STATUS_LABEL[d.status] ?? d.status;
+              return (
+                <tr
+                  key={d.id}
+                  className="border-b last:border-0"
+                  style={{ height: "var(--row-h)" }}
+                >
+                  <td className="px-4 font-medium">
+                    <div className="flex items-center gap-2">
+                      <FileText className="text-muted-foreground size-4 shrink-0" />
+                      <span className="truncate">{d.name}</span>
+                    </div>
+                  </td>
+                  <td className="px-4">
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium capitalize",
+                        categoryBadgeClass(d.category),
+                      )}
+                    >
+                      {categoryLabel(d.category)}
+                    </span>
+                  </td>
+                  <td className="px-4">
+                    <StatusBadge tone={tone}>{label}</StatusBadge>
+                  </td>
+                  <td className="px-4 whitespace-nowrap">
+                    {d.aiScore != null ? (
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums",
+                          aiScoreTone(d.aiScore),
+                        )}
+                      >
+                        {d.aiScore}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="text-muted-foreground px-4 tabular-nums whitespace-nowrap">
+                    {fmtDateOnly(d.uploadedAt)}
+                  </td>
+                  <td className="text-muted-foreground px-4 whitespace-nowrap">
+                    {d.reviewedBy ?? (
+                      <span className="text-muted-foreground/60">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 text-right whitespace-nowrap">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      nativeButton={false}
+                      render={<Link href="/documents" />}
+                    >
+                      Open
+                      <ArrowUpRight className="size-3.5" />
+                    </Button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// DB-backed Communications tab
+// ─────────────────────────────────────────────────────────
+
+const DB_CHANNEL_ICON: Record<string, typeof Mail> = {
+  EMAIL: Mail,
+  SMS: MessageSquare,
+  PORTAL: Globe,
+  VOICE: Phone,
+  INTERNAL: User,
+};
+
+const DB_COMM_STATUS_TONE: Record<string, StatusTone> = {
+  sent: "info",
+  delivered: "success",
+  opened: "success",
+  replied: "success",
+  bounced: "warning",
+  failed: "danger",
+  scheduled: "neutral",
+};
+
+function DbCommunications({
+  communications,
+}: {
+  communications: DbConsultantFull["communications"];
+}) {
+  if (!communications.length) {
+    return (
+      <div className="text-muted-foreground rounded-xl border border-dashed py-10 text-center text-sm">
+        <MessageSquare className="text-muted-foreground mx-auto mb-2 size-6" />
+        No communications recorded for this consultant yet.
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-card rounded-xl border p-4 shadow-xs">
+      <div className="mb-4 flex items-baseline justify-between">
+        <h3 className="text-card-heading">Communication timeline</h3>
+        <span className="text-metadata">
+          {communications.length} message
+          {communications.length !== 1 ? "s" : ""}
+        </span>
+      </div>
+      <ol className="flex flex-col">
+        {communications.map((c, i) => {
+          const Icon = DB_CHANNEL_ICON[c.channel] ?? Mail;
+          const last = i === communications.length - 1;
+          const statusKey = (c.status ?? "sent").toLowerCase();
+          const tone = DB_COMM_STATUS_TONE[statusKey] ?? "neutral";
+          const when = c.sentAt ?? c.createdAt;
+          return (
+            <li key={c.id} className="flex gap-3">
+              <div className="flex flex-col items-center">
+                <span className="bg-info-muted text-info-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-full">
+                  <Icon className="size-4" />
+                </span>
+                {!last && <span className="bg-border my-1 w-0.5 flex-1" />}
+              </div>
+              <div className={cn("min-w-0 pb-5", last && "pb-0")}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold">
+                    {c.subject ?? "(no subject)"}
+                  </p>
+                  <StatusBadge tone={tone}>{statusKey}</StatusBadge>
+                  {c.nudgeLevel != null && c.nudgeLevel > 0 && (
+                    <Badge variant="secondary" className="text-[10px]">
+                      Nudge level {c.nudgeLevel}
+                    </Badge>
+                  )}
+                </div>
+                {c.body && (
+                  <p className="text-muted-foreground mt-1 line-clamp-2 text-sm leading-relaxed">
+                    {c.body}
+                  </p>
+                )}
+                <p className="text-metadata mt-1">
+                  <span className="capitalize">
+                    {c.channel.toLowerCase()}
+                  </span>
+                  {c.sentBy && <> · by {c.sentBy}</>}
+                  {when && (
+                    <span className="tabular-nums"> · {relativeTime(when)}</span>
+                  )}
+                </p>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// Mock fallback — Documents
+// ─────────────────────────────────────────────────────────
+
+function matchByName<T extends { candidateName: string }>(
+  records: T[],
+  consultantName: string,
+): T[] {
+  const target = consultantName.trim().toLowerCase();
+  return records.filter((r) => r.candidateName.trim().toLowerCase() === target);
+}
+
+function MockDocuments({ consultantName }: { consultantName: string }) {
+  const docs: MockDocument[] = matchByName(DOCUMENTS, consultantName).sort(
+    (a, b) => {
+      const ad = a.submittedDate ? new Date(a.submittedDate).getTime() : 0;
+      const bd = b.submittedDate ? new Date(b.submittedDate).getTime() : 0;
+      return bd - ad;
+    },
+  );
+
+  if (!docs.length) {
+    return (
+      <div className="text-muted-foreground rounded-xl border border-dashed py-10 text-center text-sm">
+        <FileSearch className="text-muted-foreground mx-auto mb-2 size-6" />
+        <p className="mb-1">
+          Onboarding documents and communications from this consultant&rsquo;s
+          onboarding will appear here.
+        </p>
+        <p className="text-metadata">
+          Migrate this consultant to the live database to populate.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-card overflow-hidden rounded-xl border shadow-xs">
+      <div className="border-b px-4 py-3">
+        <h3 className="text-card-heading">Documents from onboarding</h3>
+        <p className="text-metadata mt-0.5">
+          Submitted during the candidate phase · {docs.length} record
+          {docs.length !== 1 ? "s" : ""}
+        </p>
+      </div>
+      <div className="overflow-x-auto">
+        <table
+          className="w-full border-collapse text-left"
+          style={{ fontSize: "var(--table-font)" }}
+        >
+          <thead>
+            <tr className="text-muted-foreground border-b">
+              {[
+                "Document",
+                "Category",
+                "Status",
+                "AI Score",
+                "Uploaded",
+                "Reviewed by",
+                "",
+              ].map((h, i) => (
+                <th
+                  key={i}
+                  className="px-4 font-medium whitespace-nowrap"
+                  style={{ height: "var(--row-h)" }}
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {docs.map((d) => {
+              const meta = DOCUMENT_STATUS_META[d.status];
+              const catMeta = DOCUMENT_CATEGORY_META[d.category];
+              return (
+                <tr
+                  key={d.id}
+                  className="border-b last:border-0"
+                  style={{ height: "var(--row-h)" }}
+                >
+                  <td className="px-4 font-medium">
+                    <div className="flex items-center gap-2">
+                      <FileText className="text-muted-foreground size-4 shrink-0" />
+                      <span className="truncate">{d.docType}</span>
+                    </div>
+                  </td>
+                  <td className="px-4">
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium",
+                        catMeta.color,
+                      )}
+                    >
+                      {catMeta.label}
+                    </span>
+                  </td>
+                  <td className="px-4">
+                    <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
+                  </td>
+                  <td className="px-4 whitespace-nowrap">
+                    {d.aiScore != null ? (
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums",
+                          aiScoreTone(d.aiScore),
+                        )}
+                      >
+                        {d.aiScore}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="text-muted-foreground px-4 tabular-nums whitespace-nowrap">
+                    {d.submittedDate ?? "—"}
+                  </td>
+                  <td className="text-muted-foreground px-4 whitespace-nowrap">
+                    {d.reviewer ?? (
+                      <span className="text-muted-foreground/60">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 text-right whitespace-nowrap">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      nativeButton={false}
+                      render={<Link href="/documents" />}
+                    >
+                      Open
+                      <ArrowUpRight className="size-3.5" />
+                    </Button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// Mock fallback — Communications
+// ─────────────────────────────────────────────────────────
+
+const MOCK_CHANNEL_ICON: Record<CommChannel, typeof Mail> = {
+  email: Mail,
+  sms: MessageSquare,
+  portal: Globe,
+  voice: Phone,
+};
+
+function MockCommunications({ consultantName }: { consultantName: string }) {
+  const comms: CommunicationRecord[] = matchByName(
+    COMMUNICATIONS,
+    consultantName,
+  ).sort((a, b) => {
+    const ad = a.sentAt ?? a.scheduledFor ?? "";
+    const bd = b.sentAt ?? b.scheduledFor ?? "";
+    return bd.localeCompare(ad);
+  });
+
+  if (!comms.length) {
+    return (
+      <div className="text-muted-foreground rounded-xl border border-dashed py-10 text-center text-sm">
+        <MessageSquare className="text-muted-foreground mx-auto mb-2 size-6" />
+        <p className="mb-1">
+          Onboarding documents and communications from this consultant&rsquo;s
+          onboarding will appear here.
+        </p>
+        <p className="text-metadata">
+          Migrate this consultant to the live database to populate.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-card rounded-xl border p-4 shadow-xs">
+      <div className="mb-4 flex items-baseline justify-between">
+        <h3 className="text-card-heading">Communication timeline</h3>
+        <span className="text-metadata">
+          {comms.length} message{comms.length !== 1 ? "s" : ""}
+        </span>
+      </div>
+      <ol className="flex flex-col">
+        {comms.map((c, i) => {
+          const Icon = MOCK_CHANNEL_ICON[c.channel] ?? Mail;
+          const meta = COMM_STATUS_META[c.status];
+          const channelMeta = CHANNEL_META[c.channel];
+          const last = i === comms.length - 1;
+          return (
+            <li key={c.id} className="flex gap-3">
+              <div className="flex flex-col items-center">
+                <span className="bg-info-muted text-info-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-full">
+                  <Icon className="size-4" />
+                </span>
+                {!last && <span className="bg-border my-1 w-0.5 flex-1" />}
+              </div>
+              <div className={cn("min-w-0 pb-5", last && "pb-0")}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold">{c.subject}</p>
+                  <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
+                  {c.isNudge && c.nudgeLevel != null && c.nudgeLevel > 0 && (
+                    <Badge variant="secondary" className="text-[10px]">
+                      Nudge level {c.nudgeLevel}
+                    </Badge>
+                  )}
+                </div>
+                {c.templateName && (
+                  <p className="text-muted-foreground mt-1 line-clamp-2 text-sm leading-relaxed">
+                    {c.templateName}
+                  </p>
+                )}
+                <p className="text-metadata mt-1">
+                  {channelMeta.label}
+                  {c.sentBy && <> · by {c.sentBy}</>}
+                  {(c.sentAt ?? c.scheduledFor) && (
+                    <span className="tabular-nums">
+                      {" "}
+                      · {c.sentAt ?? `scheduled ${c.scheduledFor}`}
+                    </span>
+                  )}
+                </p>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
 // Page
 // ─────────────────────────────────────────────────────────
 
@@ -431,6 +962,32 @@ export default async function ConsultantRecordPage({
             </TabsTrigger>
             <TabsTrigger value="lifecycle">
               {dbFull ? "Audit & Lifecycle" : "Lifecycle"}
+            </TabsTrigger>
+            <TabsTrigger value="documents">
+              Documents
+              {(() => {
+                const count = dbFull
+                  ? dbFull.documents.length
+                  : matchByName(DOCUMENTS, c.name).length;
+                return count > 0 ? (
+                  <span className="bg-muted ml-1.5 rounded px-1.5 py-0.5 text-[10px] tabular-nums">
+                    {count}
+                  </span>
+                ) : null;
+              })()}
+            </TabsTrigger>
+            <TabsTrigger value="communications">
+              Communications
+              {(() => {
+                const count = dbFull
+                  ? dbFull.communications.length
+                  : matchByName(COMMUNICATIONS, c.name).length;
+                return count > 0 ? (
+                  <span className="bg-muted ml-1.5 rounded px-1.5 py-0.5 text-[10px] tabular-nums">
+                    {count}
+                  </span>
+                ) : null;
+              })()}
             </TabsTrigger>
           </TabsList>
 
@@ -571,6 +1128,24 @@ export default async function ConsultantRecordPage({
               <DbLifecycle auditEvents={dbFull.auditEvents} />
             ) : (
               <MockLifecycle c={c} />
+            )}
+          </TabsContent>
+
+          {/* Documents */}
+          <TabsContent value="documents" className="mt-4">
+            {dbFull ? (
+              <DbDocuments documents={dbFull.documents} />
+            ) : (
+              <MockDocuments consultantName={c.name} />
+            )}
+          </TabsContent>
+
+          {/* Communications */}
+          <TabsContent value="communications" className="mt-4">
+            {dbFull ? (
+              <DbCommunications communications={dbFull.communications} />
+            ) : (
+              <MockCommunications consultantName={c.name} />
             )}
           </TabsContent>
         </Tabs>
