@@ -110,8 +110,8 @@ const INTEGRATIONS: IntegrationStatus[] = [
   { id: "adp", name: "ADP", category: "Payroll", status: "connected", detail: "Last sync 12m ago" },
   { id: "beeline", name: "Beeline VMS", category: "VMS", status: "warning", detail: "3 failed records" },
   { id: "docusign", name: "DocuSign", category: "E-Signature", status: "connected", detail: "Last sync 2m ago" },
-  { id: "sinch", name: "Sinch SMS", category: "Comms", status: "warning", detail: "Carrier filter on +1" },
-  { id: "telnyx", name: "Telnyx Voice", category: "Comms", status: "connected", detail: "Last sync 1m ago" },
+  { id: "telnyx", name: "Telnyx (Primary)", category: "Comms", status: "connected", detail: "Last sync 1m ago" },
+  { id: "sinch", name: "Sinch (Standby)", category: "Comms", status: "connected", detail: "Idle · ready" },
   { id: "jobdiva", name: "JobDiva ATS", category: "ATS", status: "warning", detail: "Auth expiring in 3d" },
 ];
 
