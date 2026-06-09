@@ -54,6 +54,16 @@ export const REPORT_CATALOG: ReportCategory[] = [
       { name: "Consultant With PNL Data", slug: "consultant-pnl" },
     ],
   },
+  {
+    id: "compliance",
+    label: "EEOC & Compliance Reports",
+    reports: [
+      { name: "EEO-1 Workforce Composition", slug: "eeo/workforce-composition" },
+      { name: "Applicant Flow Log", slug: "eeo/applicant-flow" },
+      { name: "Adverse Impact Analysis (4/5ths)", slug: "eeo/adverse-impact" },
+      { name: "VETS-4212 Veteran Report", slug: "eeo/vets-4212" },
+    ],
+  },
 ];
 
 /** Analytics reports already built in this app (live previews). */
@@ -67,6 +77,16 @@ export const PREVIEW_REPORTS: { name: string; href: string; note: string }[] = [
     name: "Skills & Specialty",
     href: "/reports/specialty",
     note: "AI-extracted skill & geographical strengths",
+  },
+  {
+    name: "Operational Counts",
+    href: "/reports/operational-counts",
+    note: "19 live pipeline + lifecycle counts",
+  },
+  {
+    name: "EEOC Compliance Suite",
+    href: "/reports/eeo",
+    note: "EEO-1, applicant flow, adverse impact, VETS-4212",
   },
 ];
 
