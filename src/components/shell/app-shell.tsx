@@ -67,11 +67,14 @@ function SidebarBody({
   return (
     <>
       <Brand collapsed={collapsed} pinControl={pinControl} />
-      <ScrollArea className="flex-1">
+      {/* min-h-0 is required — without it, flex-1 doesn't constrain the
+          ScrollArea's height in a nested flex column, so the nav overflows
+          its parent instead of scrolling inside the viewport. */}
+      <ScrollArea className="min-h-0 flex-1">
         <SidebarNav collapsed={collapsed} onNavigate={onNavigate} />
       </ScrollArea>
       {!collapsed && (
-        <div className="border-t p-2">
+        <div className="shrink-0 border-t p-2">
           <RoleSwitcher />
         </div>
       )}
