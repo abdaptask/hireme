@@ -11,15 +11,18 @@ import {
   Briefcase,
   Building2,
   Calendar,
+  Clock,
   DollarSign,
   Globe,
   Handshake,
+  Info,
   Mail,
   MapPin,
   MessageSquare,
   Phone,
   Star,
   Tag,
+  TriangleAlert,
   User,
 } from "lucide-react";
 import { PageContainer } from "@/components/page";
@@ -552,6 +555,145 @@ function MockCommunications({ consultantName }: { consultantName: string }) {
 }
 
 // ─────────────────────────────────────────────────────────
+// Tasks tab — open exceptions + upcoming document expirations
+// ─────────────────────────────────────────────────────────
+
+type ConsultantTaskRow =
+  | {
+      kind: "exception";
+      id: string;
+      title: string;
+      severity: string;
+      ageDays: number;
+      owner: string | null;
+    }
+  | {
+      kind: "expiration";
+      id: string;
+      title: string;
+      daysUntil: number;
+    };
+
+const SEVERITY_DOT: Record<string, string> = {
+  CRITICAL: "bg-danger",
+  HIGH: "bg-danger",
+  MEDIUM: "bg-warning",
+  LOW: "bg-neutral",
+};
+
+function buildConsultantTasks(dbFull: DbConsultantFull): ConsultantTaskRow[] {
+  const now = Date.now();
+  const SIXTY_DAYS = 60 * 24 * 60 * 60 * 1000;
+
+  const exceptionRows: ConsultantTaskRow[] = dbFull.exceptions
+    .filter((e) => e.status === "OPEN" || e.status === "IN_PROGRESS")
+    .map((e) => {
+      const ageMs = now - (e.createdAt?.getTime() ?? now);
+      const ageDays = Math.max(0, Math.floor(ageMs / (24 * 60 * 60 * 1000)));
+      return {
+        kind: "exception" as const,
+        id: e.id,
+        title: e.title,
+        severity: e.severity,
+        ageDays,
+        owner: e.owner,
+      };
+    });
+
+  const expirationRows: ConsultantTaskRow[] = dbFull.documents
+    .filter(
+      (d) =>
+        d.status === "APPROVED" &&
+        d.expiresAt &&
+        d.expiresAt.getTime() - now <= SIXTY_DAYS &&
+        d.expiresAt.getTime() - now >= 0,
+    )
+    .map((d) => {
+      const daysUntil = Math.max(
+        0,
+        Math.ceil((d.expiresAt!.getTime() - now) / (24 * 60 * 60 * 1000)),
+      );
+      return {
+        kind: "expiration" as const,
+        id: d.id,
+        title: d.name,
+        daysUntil,
+      };
+    })
+    .sort((a, b) =>
+      a.kind === "expiration" && b.kind === "expiration"
+        ? a.daysUntil - b.daysUntil
+        : 0,
+    );
+
+  return [...exceptionRows, ...expirationRows];
+}
+
+function ConsultantTasks({
+  rows,
+  consultantName,
+}: {
+  rows: ConsultantTaskRow[];
+  consultantName: string;
+}) {
+  if (rows.length === 0) {
+    return (
+      <div className="text-muted-foreground rounded-xl border border-dashed py-10 text-center text-sm">
+        No open tasks or upcoming expirations for this consultant.
+      </div>
+    );
+  }
+  return (
+    <div className="bg-card rounded-xl border shadow-xs">
+      <div className="border-b px-4 py-3">
+        <h3 className="text-card-heading">Open items for {consultantName}</h3>
+      </div>
+      <ul className="flex flex-col">
+        {rows.map((r) => (
+          <li
+            key={`${r.kind}-${r.id}`}
+            className="flex items-center gap-3 border-b px-4 py-2.5 last:border-0"
+          >
+            {r.kind === "exception" ? (
+              <>
+                <span
+                  className={cn(
+                    "size-2 shrink-0 rounded-full",
+                    SEVERITY_DOT[r.severity] ?? "bg-neutral",
+                  )}
+                  aria-hidden
+                />
+                <TriangleAlert className="text-muted-foreground size-3.5 shrink-0" />
+                <span className="min-w-0 flex-1 truncate text-sm">
+                  <span className="text-muted-foreground">Exception:</span>{" "}
+                  <span className="font-medium">{r.title}</span>
+                </span>
+                <span className="text-metadata shrink-0 tabular-nums">
+                  {r.ageDays === 0 ? "today" : `${r.ageDays}d old`}
+                  {r.owner ? ` · ${r.owner}` : ""}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="bg-warning size-2 shrink-0 rounded-full" aria-hidden />
+                <Clock className="text-muted-foreground size-3.5 shrink-0" />
+                <span className="min-w-0 flex-1 truncate text-sm">
+                  <span className="text-muted-foreground">Document expiring:</span>{" "}
+                  <span className="font-medium">{r.title}</span>
+                </span>
+                <span className="text-metadata shrink-0 tabular-nums">
+                  in {r.daysUntil}d
+                </span>
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
 // Page
 // ─────────────────────────────────────────────────────────
 
@@ -574,6 +716,7 @@ export default async function ConsultantRecordPage({
 
   const meta = CONSULTANT_STATUS_META[c.status];
   const initials = c.name.split(" ").map((n) => n[0]).join("");
+  const taskRows = dbFull ? buildConsultantTasks(dbFull) : [];
 
   return (
     <div className="flex flex-col">
@@ -608,7 +751,7 @@ export default async function ConsultantRecordPage({
                 {c.role} · {c.client} · {c.location}
               </p>
             </div>
-            {dbFull && (
+            {dbFull ? (
               <div className="ml-auto flex items-center gap-2">
                 <EditConsultantSheet
                   consultant={{
@@ -628,6 +771,13 @@ export default async function ConsultantRecordPage({
                     notes: dbFull.notes,
                   }}
                 />
+              </div>
+            ) : (
+              <div className="border-warning/30 bg-warning/5 ml-auto flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs">
+                <Info className="text-warning-muted-foreground size-3.5 shrink-0" />
+                <span className="text-muted-foreground">
+                  Read-only · mock record (not in database)
+                </span>
               </div>
             )}
           </div>
@@ -650,9 +800,11 @@ export default async function ConsultantRecordPage({
             <TabsTrigger value="timeline">Timeline</TabsTrigger>
             <TabsTrigger value="tasks">
               Tasks
-              <span className="bg-muted ml-1.5 rounded px-1.5 py-0.5 text-[10px] tabular-nums">
-                0
-              </span>
+              {taskRows.length > 0 && (
+                <span className="bg-muted ml-1.5 rounded px-1.5 py-0.5 text-[10px] tabular-nums">
+                  {taskRows.length}
+                </span>
+              )}
             </TabsTrigger>
             <TabsTrigger value="documents">
               Documents
@@ -854,11 +1006,15 @@ export default async function ConsultantRecordPage({
             )}
           </TabsContent>
 
-          {/* Tasks — consultants don't yet have a task source */}
+          {/* Tasks — open exceptions + upcoming document expirations */}
           <TabsContent value="tasks" className="mt-4">
-            <div className="text-muted-foreground rounded-xl border border-dashed py-10 text-center text-sm">
-              No open tasks for this consultant.
-            </div>
+            {dbFull ? (
+              <ConsultantTasks rows={taskRows} consultantName={c.name} />
+            ) : (
+              <div className="text-muted-foreground rounded-xl border border-dashed py-10 text-center text-sm">
+                Tasks for this consultant will appear here once the record is in the live database.
+              </div>
+            )}
           </TabsContent>
 
           {/* Documents */}

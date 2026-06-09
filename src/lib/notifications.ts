@@ -15,8 +15,12 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { CURRENT_ONBOARDER, CURRENT_RECRUITER, TEAM_LEAD } from "@/lib/ops-data";
+import { CANDIDATES, type CandidateSummary } from "@/lib/candidates";
+import { DOCUMENTS } from "@/lib/documents";
+import { SCREENING_RECORDS } from "@/lib/screening";
+import { getPerson } from "@/lib/org";
 import type { RoleId } from "@/lib/roles";
-import { daysAgo, hoursAgo, minutesAgo } from "@/lib/clock";
+import { hoursAgo, minutesAgo } from "@/lib/clock";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -426,261 +430,217 @@ export const ROUTING: Partial<
 };
 
 // ---------------------------------------------------------------------------
-// Sample events
+// Event derivation from live mock data
 // ---------------------------------------------------------------------------
 
 /**
- * Demo event stream. Each message describes only the *status* and *next action* —
- * never sensitive findings (screening results, drug findings, SSN, DOB, salary).
- *
- * In production these come from the event bus (§76.3).
+ * The demo platform has a single Account Manager who owns every client
+ * relationship; matches `getViewerOwnership("account-manager")`.
  */
-export const SAMPLE_EVENTS: SystemEvent[] = [
-  {
-    id: "evt-001",
-    eventType: "DOCUMENT_REJECTED",
-    occurredAt: minutesAgo(15),
-    subject: { kind: "candidate", id: "marcus-webb", name: "Marcus Webb" },
-    owners: {
-      onboarder: "Riya Kim",
-      recruiter: "Priya Kapoor",
-      teamLead: "Jordan Reed",
-      accountManager: "Alex Castellanos",
-      client: "NovaTech Solutions",
-    },
-    title: "W-9 rejected — Marcus Webb",
-    message:
-      "Entity name mismatch. Payroll cannot be activated until corrected.",
-    href: "/candidates/marcus-webb",
-  },
-  {
-    id: "evt-002",
-    eventType: "START_DATE_AT_RISK",
-    occurredAt: minutesAgo(40),
-    subject: { kind: "candidate", id: "james-rivera", name: "James Rivera" },
-    owners: {
-      onboarder: "Riya Kim",
-      recruiter: "Devon Hughes",
-      teamLead: "Devon Hughes",
-      accountManager: "Alex Castellanos",
-      client: "Meridian Health",
-    },
-    title: "Start date at risk — James Rivera",
-    message:
-      "Background check consent not submitted. Start date is 3 days away.",
-    href: "/candidates/james-rivera",
-  },
-  {
-    id: "evt-003",
-    eventType: "BG_CHECK_DELAY",
-    occurredAt: hoursAgo(2),
-    subject: { kind: "candidate", id: "raj-patel", name: "Raj Patel" },
-    owners: {
-      onboarder: "Riya Kim",
-      recruiter: "Marcus Chen",
-      teamLead: "Jordan Reed",
-      accountManager: "Alex Castellanos",
-      client: "Apex Dynamics",
-    },
-    title: "Background check delayed — Raj Patel",
-    message:
-      "Vendor reports additional information requested. No findings disclosed.",
-    href: "/candidates/raj-patel",
-  },
-  {
-    id: "evt-004",
+const DEMO_ACCOUNT_MANAGER = "Alex Castellanos";
+
+/**
+ * Resolve the team lead for a recruiter/onboarder using the ORG tree (§55).
+ * Returns the lead's name if the person reports to a team-lead, or the person
+ * themselves if they *are* a team-lead. Returns undefined for ICs reporting
+ * straight to a manager (no pod layer).
+ */
+function teamLeadFor(name: string | undefined): string | undefined {
+  if (!name) return undefined;
+  const person = getPerson(name);
+  if (!person) return undefined;
+  if (person.role === "team-lead") return person.name;
+  if (person.reportsTo) {
+    const parent = getPerson(person.reportsTo);
+    if (parent?.role === "team-lead") return parent.name;
+  }
+  return undefined;
+}
+
+/** Standard owner block for any candidate-subject event. */
+function ownersForCandidate(c: CandidateSummary) {
+  return {
+    onboarder: c.onboarder,
+    recruiter: c.recruiter,
+    // Prefer the recruiter's lead (recruiter-side events); fall back to
+    // onboarder's pod if recruiter has no lead layer.
+    teamLead: teamLeadFor(c.recruiter) ?? teamLeadFor(c.onboarder),
+    accountManager: DEMO_ACCOUNT_MANAGER,
+    client: c.client,
+  };
+}
+
+/**
+ * Build the live event stream by scanning the operational mock data.
+ *
+ * Events are derived rather than hand-curated so the notification bell stays in
+ * sync with whatever the rest of the app shows: rejected documents become
+ * DOCUMENT_REJECTED events, at-risk candidates with imminent starts become
+ * START_DATE_AT_RISK events, screening delays become BG_CHECK_DELAY events,
+ * etc. Each message stays at the *status / next action* layer — never leaking
+ * sensitive findings (screening results, drug findings, SSN, DOB, salary).
+ *
+ * In production the same shape arrives from the event bus (§76.3).
+ */
+export function getDerivedEvents(): SystemEvent[] {
+  const events: SystemEvent[] = [];
+
+  // ── Rejected / correction-required documents → DOCUMENT_REJECTED ──
+  const rejectedDocs = DOCUMENTS.filter(
+    (d) => d.status === "rejected" || d.status === "correction-required",
+  );
+  rejectedDocs.forEach((d, i) => {
+    const owner = CANDIDATES.find((c) => c.id === d.candidateId);
+    events.push({
+      id: `evt-doc-rejected-${d.id}`,
+      eventType: "DOCUMENT_REJECTED",
+      occurredAt: minutesAgo(15 + i * 47),
+      subject: {
+        kind: "candidate",
+        id: d.candidateId,
+        name: d.candidateName,
+      },
+      owners: owner
+        ? ownersForCandidate(owner)
+        : { client: d.client, accountManager: DEMO_ACCOUNT_MANAGER },
+      title: `${d.docType} rejected — ${d.candidateName}`,
+      message:
+        d.rejectionReason ??
+        "Re-upload required before onboarding can continue.",
+      href: `/candidates/${d.candidateId}`,
+    });
+  });
+
+  // ── At-risk candidates with imminent starts → START_DATE_AT_RISK ──
+  const atRiskSoon = CANDIDATES.filter(
+    (c) =>
+      (c.risk === "at-risk" || c.risk === "unlikely") && c.startInDays <= 7,
+  );
+  atRiskSoon.forEach((c, i) => {
+    events.push({
+      id: `evt-sdr-${c.id}`,
+      eventType: "START_DATE_AT_RISK",
+      occurredAt: minutesAgo(40 + i * 53),
+      subject: { kind: "candidate", id: c.id, name: c.name },
+      owners: ownersForCandidate(c),
+      title: `Start date at risk — ${c.name}`,
+      message: `Starts ${c.startDateLabel} (${c.startInDays} day${c.startInDays === 1 ? "" : "s"}). Still in ${c.stage}.`,
+      href: `/candidates/${c.id}`,
+    });
+  });
+
+  // ── Screening delays / info requests → BG_CHECK_DELAY ──
+  const stalledScreens = SCREENING_RECORDS.filter(
+    (s) => s.status === "vendor-delayed" || s.status === "info-required",
+  );
+  stalledScreens.forEach((s, i) => {
+    const owner = CANDIDATES.find((c) => c.id === s.candidateId);
+    events.push({
+      id: `evt-bgc-${s.id}`,
+      eventType: "BG_CHECK_DELAY",
+      occurredAt: hoursAgo(2 + i * 3),
+      subject: {
+        kind: "candidate",
+        id: s.candidateId,
+        name: s.candidateName,
+      },
+      owners: owner
+        ? ownersForCandidate(owner)
+        : { client: s.client, accountManager: DEMO_ACCOUNT_MANAGER },
+      title: `Background check delayed — ${s.candidateName}`,
+      message:
+        s.status === "info-required"
+          ? "Vendor requested additional information from the candidate."
+          : "Vendor turnaround exceeded SLA. No findings disclosed.",
+      href: `/candidates/${s.candidateId}`,
+    });
+  });
+
+  // ── Payroll not ready → tags from CANDIDATES ──
+  const payrollGaps = CANDIDATES.filter(
+    (c) =>
+      c.tags.includes("Missing direct deposit") ||
+      c.tags.includes("Payroll sync failed"),
+  );
+  payrollGaps.forEach((c, i) => {
+    events.push({
+      id: `evt-payroll-${c.id}`,
+      eventType: "PAYROLL_NOT_READY",
+      occurredAt: hoursAgo(6 + i * 4),
+      subject: { kind: "candidate", id: c.id, name: c.name },
+      owners: ownersForCandidate(c),
+      title: `Payroll not ready — ${c.name}`,
+      message: `${c.tags.find((t) => t.startsWith("Missing") || t === "Payroll sync failed") ?? "Payroll setup incomplete"}. Start date is ${c.startInDays} days away.`,
+      href: `/candidates/${c.id}`,
+    });
+  });
+
+  // ── Pending client approval → CLIENT_PROMISE_AT_RISK + PACKAGE_APPROVED twin ──
+  const awaitingClient = CANDIDATES.filter((c) =>
+    c.tags.includes("Package awaiting client approval"),
+  );
+  awaitingClient.forEach((c, i) => {
+    events.push({
+      id: `evt-client-promise-${c.id}`,
+      eventType: "CLIENT_PROMISE_AT_RISK",
+      occurredAt: hoursAgo(8 + i * 2),
+      subject: { kind: "candidate", id: c.id, name: c.name },
+      owners: ownersForCandidate(c),
+      title: `Client promise at risk — ${c.client}`,
+      message: `Package for ${c.name} awaiting client approval. Promised clearance date may slip.`,
+      href: `/candidates/${c.id}`,
+    });
+  });
+
+  // ── Unresponsive candidates (proxy: slow activity + needs-attention) ──
+  const unresponsive = CANDIDATES.filter(
+    (c) =>
+      c.status === "needs-attention" &&
+      (c.lastActivity.endsWith("h ago") || c.lastActivity.endsWith("d ago")) &&
+      c.startInDays <= 10,
+  ).slice(0, 2);
+  unresponsive.forEach((c, i) => {
+    events.push({
+      id: `evt-unresponsive-${c.id}`,
+      eventType: "CANDIDATE_UNRESPONSIVE_48H",
+      occurredAt: hoursAgo(20 + i * 4),
+      subject: { kind: "candidate", id: c.id, name: c.name },
+      owners: ownersForCandidate(c),
+      title: `Candidate unresponsive — ${c.name}`,
+      message:
+        "Portal activity has dropped off. Recruiter outreach recommended.",
+      href: `/candidates/${c.id}`,
+    });
+  });
+
+  // ── System-wide synthetic events (no candidate subject) ──
+  events.push({
+    id: "evt-integration-beeline",
     eventType: "INTEGRATION_FAILURE",
     occurredAt: hoursAgo(1),
     subject: { kind: "integration", id: "beeline-vms", name: "Beeline VMS" },
-    owners: {
-      onboarder: "Riya Kim",
-    },
+    owners: {},
     title: "Beeline VMS integration failed",
     message:
       "3 worker status updates failed to sync. Retry queue has 3 pending records.",
     href: "/planned/integrations",
-  },
-  {
-    id: "evt-005",
-    eventType: "SLA_BREACH",
-    occurredAt: hoursAgo(2),
-    subject: { kind: "candidate", id: "grace-okafor", name: "Grace Okafor" },
-    owners: {
-      onboarder: "Riya Kim",
-      recruiter: "Devon Hughes",
-      teamLead: "Devon Hughes",
-      accountManager: "Alex Castellanos",
-      client: "Meridian Health",
-    },
-    title: "SLA approaching — I-9 review",
-    message: "Grace Okafor's I-9 Section 2 review is due in 4 hours.",
-    href: "/candidates/grace-okafor",
-  },
-  {
-    id: "evt-006",
-    eventType: "PACKAGE_APPROVED",
-    occurredAt: hoursAgo(3),
-    subject: { kind: "candidate", id: "raj-patel", name: "Raj Patel" },
-    owners: {
-      onboarder: "Riya Kim",
-      recruiter: "Marcus Chen",
-      teamLead: "Jordan Reed",
-      accountManager: "Alex Castellanos",
-      client: "Apex Dynamics",
-    },
-    title: "Package approved — Raj Patel",
-    message:
-      "Apex Dynamics onboarding package approved by Devon Hughes. Candidate notified.",
-    href: "/candidates/raj-patel",
-  },
-  {
-    id: "evt-007",
-    eventType: "OFFER_ACCEPTED",
-    occurredAt: hoursAgo(4),
-    subject: { kind: "candidate", id: "aisha-bello", name: "Aisha Bello" },
-    owners: {
-      onboarder: "Derek Okafor",
-      recruiter: "Aisha Crawford",
-      teamLead: "Jordan Reed",
-      accountManager: "Alex Castellanos",
-      client: "Global Finance Corp",
-    },
-    title: "Offer accepted — Aisha Bello",
-    message:
-      "Onboarding package auto-generated. Handoff started by Derek Okafor.",
-    href: "/candidates/aisha-bello",
-  },
-  {
-    id: "evt-008",
-    eventType: "AI_RECOMMENDATION_HIGH_RISK",
-    occurredAt: hoursAgo(4),
-    subject: { kind: "system", name: "Lena Park" },
-    owners: {
-      onboarder: "Riya Kim",
-      recruiter: "Tyler Brooks",
-      teamLead: "Jordan Reed",
-      accountManager: "Alex Castellanos",
-      client: "Apex Dynamics",
-    },
-    title: "AI recommendation — Lena Park",
-    message:
-      "Start date confidence dropped to 71%. Equipment delivery at risk. Human approval required.",
-    href: "/candidates/lena-park",
-  },
-  {
-    id: "evt-009",
-    eventType: "BIRTHDAY_MILESTONE",
-    occurredAt: hoursAgo(6),
-    subject: { kind: "candidate", id: "grace-okafor", name: "Grace Okafor" },
-    owners: {
-      onboarder: "Riya Kim",
-      recruiter: "Devon Hughes",
-      teamLead: "Devon Hughes",
-      accountManager: "Alex Castellanos",
-      client: "Meridian Health",
-    },
-    title: "Upcoming birthday — Grace Okafor",
-    message:
-      "Birthday is in 2 days. AI has drafted a personalized message for approval.",
-    href: "/candidates/grace-okafor",
-  },
-  {
-    id: "evt-010",
-    eventType: "EQUIPMENT_DELAYED",
-    occurredAt: hoursAgo(8),
-    subject: { kind: "candidate", id: "lena-park", name: "Lena Park" },
-    owners: {
-      onboarder: "Riya Kim",
-      recruiter: "Tyler Brooks",
-      teamLead: "Jordan Reed",
-      accountManager: "Alex Castellanos",
-      client: "Apex Dynamics",
-    },
-    title: "Equipment delayed — Lena Park",
-    message:
-      "Laptop shipment unlikely to arrive before start date. Reschedule provisioning.",
-    href: "/candidates/lena-park",
-  },
-  {
-    id: "evt-011",
-    eventType: "CLIENT_PROMISE_AT_RISK",
-    occurredAt: hoursAgo(12),
-    subject: { kind: "client", id: "meridian-health", name: "Meridian Health" },
-    owners: {
-      onboarder: "Riya Kim",
-      recruiter: "Devon Hughes",
-      teamLead: "Devon Hughes",
-      accountManager: "Alex Castellanos",
-      client: "Meridian Health",
-    },
-    title: "Client promise at risk — Meridian Health",
-    message:
-      "Promised clearance date for 2 consultants likely to slip. Notify Account Manager.",
-    href: "/planned/clients",
-  },
-  {
-    id: "evt-012",
-    eventType: "PAYROLL_NOT_READY",
-    occurredAt: hoursAgo(18),
-    subject: { kind: "candidate", id: "marcus-webb", name: "Marcus Webb" },
-    owners: {
-      onboarder: "Riya Kim",
-      recruiter: "Priya Kapoor",
-      teamLead: "Jordan Reed",
-      accountManager: "Alex Castellanos",
-      client: "NovaTech Solutions",
-    },
-    title: "Payroll not ready — Marcus Webb",
-    message:
-      "Direct deposit and state tax form outstanding. Start date is 4 days away.",
-    href: "/candidates/marcus-webb",
-  },
-  {
-    id: "evt-013",
-    eventType: "COMPLIANCE_OVERRIDE",
-    occurredAt: daysAgo(1),
-    subject: { kind: "system", name: "Compliance" },
-    owners: {},
-    title: "Compliance override logged",
-    message:
-      "California wage notice waived for 1 consultant. Reason: client-provided equivalent. Audit logged.",
-    href: "/planned/audit",
-  },
-  {
-    id: "evt-014",
-    eventType: "CANDIDATE_UNRESPONSIVE_48H",
-    occurredAt: daysAgo(1),
-    subject: { kind: "candidate", id: "sarah-chen", name: "Sarah Chen" },
-    owners: {
-      onboarder: "Riya Kim",
-      recruiter: "Devon Hughes",
-      teamLead: "Devon Hughes",
-      accountManager: "Alex Castellanos",
-      client: "Atlas Manufacturing",
-    },
-    title: "Candidate unresponsive — Sarah Chen",
-    message:
-      "No portal activity in 48 hours. Recruiter outreach recommended.",
-    href: "/candidates/sarah-chen",
-  },
-  {
-    id: "evt-015",
-    eventType: "OFFER_ACCEPTED",
-    occurredAt: daysAgo(2),
-    subject: { kind: "candidate", id: "noah-klein", name: "Noah Klein" },
-    owners: {
-      onboarder: "Sasha Patel",
-      recruiter: "Devon Hughes",
-      teamLead: "Devon Hughes",
-      accountManager: "Alex Castellanos",
-      client: "Vertex Financial",
-    },
-    title: "Offer accepted — Noah Klein",
-    message:
-      "Package auto-generated. Handoff to onboarder complete.",
-    href: "/candidates/noah-klein",
-  },
-];
+  });
+
+  if (atRiskSoon.length > 0) {
+    events.push({
+      id: "evt-ai-bulk-nudge",
+      eventType: "AI_RECOMMENDATION_HIGH_RISK",
+      occurredAt: hoursAgo(4),
+      subject: { kind: "system" },
+      owners: {},
+      title: "AI recommends bulk nudge",
+      message: `${atRiskSoon.length} at-risk candidate${atRiskSoon.length === 1 ? "" : "s"} flagged. AI drafted personalized SMS for each — requires approval.`,
+      href: "/planned/my-work",
+    });
+  }
+
+  return events;
+}
 
 // ---------------------------------------------------------------------------
 // Filter / route
@@ -859,7 +819,7 @@ export function useViewerNotifications(role: RoleId): {
   const notifications = useMemo(() => {
     if (noInbox) return [];
     const readIds = getReadSet(role);
-    return notificationsForViewer(SAMPLE_EVENTS, {
+    return notificationsForViewer(getDerivedEvents(), {
       role,
       ownership,
       readIds,

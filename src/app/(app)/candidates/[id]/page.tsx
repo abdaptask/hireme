@@ -7,6 +7,7 @@ import {
   Calendar,
   CheckCircle2,
   Handshake,
+  Info,
   Mail,
   MapPin,
   MoreHorizontal,
@@ -262,6 +263,14 @@ export default async function CandidateRecordPage({
               </p>
             </div>
             <div className="ml-auto flex items-center gap-2">
+              {!dbCandidate && (
+                <div className="border-warning/30 bg-warning/5 flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs">
+                  <Info className="text-warning-muted-foreground size-3.5 shrink-0" />
+                  <span className="text-muted-foreground">
+                    Read-only · mock record (not in database)
+                  </span>
+                </div>
+              )}
               {dbCandidate && (
                 <EditCandidateSheet
                   candidate={{

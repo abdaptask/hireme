@@ -4,6 +4,10 @@
  * requirement so AI never operates as an invisible black box.
  */
 import type { PersonaId } from "@/lib/types";
+import { CANDIDATES } from "@/lib/candidates";
+import { DOCUMENTS } from "@/lib/documents";
+import { SCREENING_RECORDS } from "@/lib/screening";
+import { formatDate, now } from "@/lib/clock";
 
 export type AiConfidence = "high" | "medium" | "low";
 
@@ -322,23 +326,106 @@ export const RECOMMENDATIONS: AiRecommendation[] = [
 // ---------------------------------------------------------------------------
 
 export function getMorningBriefing(): MorningBriefing {
+  // Active onboardings — everything not yet completed/withdrawn.
+  // (CandidateSummary doesn't carry a "completed"/"withdrawn" status today,
+  // so the full pipeline counts as active — matches the rest of the UI.)
+  const active = CANDIDATES;
+
+  // Start-date risk (§33): at-risk + unlikely candidates, soonest first.
+  const atRisk = active.filter(
+    (c) => c.risk === "at-risk" || c.risk === "unlikely",
+  );
+  const mostUrgent = atRisk
+    .slice()
+    .sort((a, b) => a.startInDays - b.startInDays)[0];
+
+  // Documents in the review queue — anything not yet decided.
+  const docsToReview = DOCUMENTS.filter((d) =>
+    ["pending", "submitted", "ai-review"].includes(d.status),
+  ).length;
+
+  // Background checks over SLA — vendor-delayed or info-required (§22).
+  const bgcDelayedRecords = SCREENING_RECORDS.filter(
+    (s) => s.status === "vendor-delayed" || s.status === "info-required",
+  );
+  const bgcDelayed = bgcDelayedRecords.length;
+  const bgcVendors = Array.from(
+    new Set(bgcDelayedRecords.map((r) => r.vendor)),
+  );
+
+  // Unresponsive candidates — heuristic: needs-attention with low progress
+  // (we don't track last-portal-login yet; this approximates the same idea).
+  const unresponsive = active.filter(
+    (c) => c.risk === "needs-attention" && c.progress < 50,
+  ).length;
+
+  // AI actions awaiting human approval — count real pending recommendations
+  // that require approval.
+  const aiPending = RECOMMENDATIONS.filter(
+    (r) => r.status === "pending" && r.approvalRequired,
+  ).length;
+
+  // Compose the narrative from the same numbers.
+  const summaryParts: string[] = [
+    `You have ${active.length} active onboarding${active.length === 1 ? "" : "s"}.`,
+  ];
+  if (atRisk.length) {
+    let line = `${atRisk.length} start date${atRisk.length === 1 ? " is" : "s are"} at risk`;
+    if (mostUrgent) {
+      const when =
+        mostUrgent.startInDays < 0
+          ? `${Math.abs(mostUrgent.startInDays)} day${Math.abs(mostUrgent.startInDays) === 1 ? "" : "s"} ago`
+          : mostUrgent.startInDays === 0
+            ? "today"
+            : `in ${mostUrgent.startInDays} day${mostUrgent.startInDays === 1 ? "" : "s"}`;
+      line += ` — most urgent is ${mostUrgent.name}, starting ${when}`;
+    }
+    summaryParts.push(line + ".");
+  }
+  if (docsToReview) {
+    summaryParts.push(
+      `${docsToReview} document${docsToReview === 1 ? " is" : "s are"} in your review queue.`,
+    );
+  }
+  if (bgcDelayed) {
+    const vendorPart = bgcVendors.length
+      ? ` at ${bgcVendors.join(" and ")}`
+      : "";
+    summaryParts.push(
+      `${bgcDelayed} background check${bgcDelayed === 1 ? "" : "s"}${vendorPart} ${bgcDelayed === 1 ? "has" : "have"} exceeded SLA thresholds.`,
+    );
+  }
+  if (unresponsive) {
+    summaryParts.push(
+      `${unresponsive} candidate${unresponsive === 1 ? " needs" : "s need"} follow-up.`,
+    );
+  }
+  if (aiPending) {
+    summaryParts.push(
+      `${aiPending} AI recommendation${aiPending === 1 ? " is" : "s are"} awaiting your approval.`,
+    );
+  }
+
+  const highlights: MorningBriefingHighlight[] = (
+    [
+      { label: "Start dates at risk", count: atRisk.length, tone: "danger", href: "/onboarding" },
+      { label: "Docs to review", count: docsToReview, tone: "warning", href: "/documents" },
+      { label: "BGC over SLA", count: bgcDelayed, tone: "warning", href: "/screening" },
+      { label: "Candidates need follow-up", count: unresponsive, tone: "danger", href: "/communications" },
+      { label: "AI actions pending", count: aiPending, tone: "ai", href: "/my-work" },
+    ] as const satisfies readonly MorningBriefingHighlight[]
+  ).filter((h) => h.count > 0);
+
   return {
-    date: "2026-06-07",
-    activeOnboardings: 18,
-    startDatesAtRisk: 4,
-    docsRequiringReview: 7,
-    backgroundChecksOverSla: 2,
-    unresponsiveCandidates: 3,
-    aiActionsAwaiting: 5,
-    summary:
-      "You have 18 active onboardings. 4 start dates are at risk — James Rivera needs an I-9 upload within 24 hours, and Owen Bradley's start date has already passed. 7 documents are in your review queue, 2 background checks at HireRight and Sterling have exceeded SLA thresholds, and 3 candidates have not responded to portal messages in over 48 hours. 5 AI recommendations are awaiting your approval.",
-    highlights: [
-      { label: "Start dates at risk", count: 4, tone: "danger", href: "/onboarding" },
-      { label: "Docs to review", count: 7, tone: "warning", href: "/documents" },
-      { label: "BGC over SLA", count: 2, tone: "warning", href: "/screening" },
-      { label: "Candidates unresponsive", count: 3, tone: "danger", href: "/communications" },
-      { label: "AI actions pending", count: 5, tone: "ai", href: "/my-work" },
-    ],
+    date: formatDate(now(), { withYear: true }),
+    activeOnboardings: active.length,
+    startDatesAtRisk: atRisk.length,
+    docsRequiringReview: docsToReview,
+    backgroundChecksOverSla: bgcDelayed,
+    unresponsiveCandidates: unresponsive,
+    aiActionsAwaiting: aiPending,
+    summary: summaryParts.join(" "),
+    highlights,
   };
 }
 
