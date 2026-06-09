@@ -1,206 +1,137 @@
-"use client";
+/**
+ * Administration hub index.
+ *
+ * Reads from `src/lib/admin-hub.ts` (single source of truth) and renders
+ * a grouped tile grid that links to each admin sub-page. Tiles flagged
+ * `redirect: true` route outside the admin tree (e.g. `/clients`) and
+ * surface an up-right arrow as a hint.
+ */
 
-import { useRouter } from "next/navigation";
-import { Eye, RotateCcw } from "lucide-react";
+import Link from "next/link";
+import {
+  ArrowLeftRight,
+  ArrowUpRight,
+  Building2,
+  type LucideIcon,
+  CircleDot,
+  Database,
+  FileText,
+  Gift,
+  Handshake,
+  HeartPulse,
+  LayoutDashboard,
+  PackageOpen,
+  Receipt,
+  RefreshCw,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 import { PageContainer, PageHeader } from "@/components/page";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { getPersona, NAV_SECTIONS } from "@/lib/nav";
-import { ADMIN_ROLE, ROLES, type RoleId } from "@/lib/roles";
-import { useEntitlements } from "@/components/providers/entitlements-provider";
+  ADMIN_SECTIONS,
+  type AdminEntry,
+  type AdminTone,
+} from "@/lib/admin-hub";
 import { cn } from "@/lib/utils";
 
-export default function AdministrationPage() {
-  const router = useRouter();
-  const {
-    visibility,
-    setVisible,
-    setRoleAll,
-    resetRole,
-    resetAll,
-    setViewAs,
-    viewAs,
-  } = useEntitlements();
+/* ------------------------------ icon registry ----------------------------- */
 
-  function previewAs(role: RoleId) {
-    setViewAs(role);
-    router.push(getPersona(role).home);
-  }
+const ICON_MAP: Record<string, LucideIcon> = {
+  ArrowLeftRight,
+  Building2,
+  Database,
+  FileText,
+  Gift,
+  Handshake,
+  HeartPulse,
+  LayoutDashboard,
+  PackageOpen,
+  Receipt,
+  RefreshCw,
+  ShieldCheck,
+  Users,
+};
 
+function resolveIcon(name: string): LucideIcon {
+  return ICON_MAP[name] ?? CircleDot;
+}
+
+/* -------------------------------- tones ---------------------------------- */
+
+const TONE_CLS: Record<AdminTone, string> = {
+  blue: "bg-info/10 text-info",
+  purple: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
+  orange: "bg-warning/10 text-warning",
+  red: "bg-danger/10 text-danger",
+  green: "bg-success/10 text-success",
+  teal: "bg-teal-500/10 text-teal-600 dark:text-teal-400",
+};
+
+/* --------------------------------- tile ---------------------------------- */
+
+function AdminTile({ entry }: { entry: AdminEntry }) {
+  const Icon = resolveIcon(entry.icon);
   return (
-    <PageContainer className="flex flex-col gap-6">
-      <PageHeader
-        title="Administration"
-        description="Roles, permissions & navigation visibility (§42, §121.7)."
-        actions={
-          <Button variant="outline" size="sm" onClick={resetAll}>
-            <RotateCcw className="size-4" /> Reset all to defaults
-          </Button>
-        }
-      />
-
-      <div className="bg-card overflow-hidden rounded-xl border shadow-xs">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
-          <div>
-            <h2 className="text-section-heading">Navigation visibility</h2>
-            <p className="text-muted-foreground text-sm">
-              Show or hide each navigation section per role. Hidden items don&apos;t
-              appear in the sidebar, command palette, or quick-create for that
-              role. Saved locally now; becomes account-backed when auth is wired.
-            </p>
+    <Link
+      href={entry.href}
+      className="bg-card hover:border-primary/40 group rounded-xl border p-4 shadow-xs transition-colors"
+    >
+      <div className="flex items-start gap-3">
+        <span
+          className={cn(
+            "flex size-10 shrink-0 items-center justify-center rounded-lg",
+            TONE_CLS[entry.tone],
+          )}
+        >
+          <Icon className="size-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h3 className="text-card-heading">{entry.label}</h3>
+            {entry.redirect && (
+              <ArrowUpRight className="text-muted-foreground size-3.5" />
+            )}
           </div>
-          <Badge variant="secondary" className="gap-1.5">
-            <Eye className="size-3" /> Viewing as {viewAs}
-          </Badge>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b">
-                <th className="bg-card sticky left-0 z-10 px-4 py-2.5 text-left font-medium">
-                  Navigation item
-                </th>
-                {ROLES.map((role) => (
-                  <th
-                    key={role.id}
-                    className="px-3 py-2.5 text-center align-bottom font-medium whitespace-nowrap"
-                  >
-                    <div className="flex flex-col items-center gap-1">
-                      <span>{role.label}</span>
-                      {role.id === ADMIN_ROLE ? (
-                        <Badge
-                          variant="outline"
-                          className="text-[9px] font-normal"
-                        >
-                          full access
-                        </Badge>
-                      ) : (
-                        <RoleColumnMenu
-                          onAll={() => setRoleAll(role.id, true)}
-                          onNone={() => setRoleAll(role.id, false)}
-                          onReset={() => resetRole(role.id)}
-                          onPreview={() => previewAs(role.id)}
-                        />
-                      )}
-                    </div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {NAV_SECTIONS.map((section) => (
-                <SectionRows
-                  key={section.id}
-                  sectionLabel={section.label}
-                  items={section.items.map((i) => ({
-                    id: i.id,
-                    label: i.label,
-                  }))}
-                  visibility={visibility}
-                  onToggle={setVisible}
-                />
-              ))}
-            </tbody>
-          </table>
+          <p className="text-muted-foreground mt-0.5 text-sm leading-snug">
+            {entry.description}
+          </p>
+          {entry.badge && (
+            <Badge variant="secondary" className="mt-2 text-[10px]">
+              {entry.badge}
+            </Badge>
+          )}
         </div>
       </div>
-    </PageContainer>
+    </Link>
   );
 }
 
-function RoleColumnMenu({
-  onAll,
-  onNone,
-  onReset,
-  onPreview,
-}: {
-  onAll: () => void;
-  onNone: () => void;
-  onReset: () => void;
-  onPreview: () => void;
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <button
-            type="button"
-            className="text-muted-foreground hover:text-foreground text-[10px] underline-offset-2 hover:underline"
-          />
-        }
-      >
-        bulk · preview
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="center" className="w-40">
-        <DropdownMenuItem onClick={onAll}>Show all</DropdownMenuItem>
-        <DropdownMenuItem onClick={onNone}>Hide all</DropdownMenuItem>
-        <DropdownMenuItem onClick={onReset}>Reset to default</DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={onPreview}>
-          <Eye className="size-4" /> Preview as this role
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
+/* --------------------------------- page ---------------------------------- */
 
-function SectionRows({
-  sectionLabel,
-  items,
-  visibility,
-  onToggle,
-}: {
-  sectionLabel: string;
-  items: { id: string; label: string }[];
-  visibility: Record<RoleId, Record<string, boolean>>;
-  onToggle: (role: RoleId, itemId: string, value: boolean) => void;
-}) {
+export default function AdministrationPage() {
   return (
-    <>
-      <tr className="bg-muted/40 border-b">
-        <td
-          colSpan={ROLES.length + 1}
-          className="text-data-label sticky left-0 px-4 py-1.5"
-        >
-          {sectionLabel}
-        </td>
-      </tr>
-      {items.map((item) => (
-        <tr key={item.id} className="hover:bg-muted/30 border-b last:border-0">
-          <td className="bg-card sticky left-0 z-10 px-4 py-2 font-medium">
-            {item.label}
-          </td>
-          {ROLES.map((role) => {
-            const checked = visibility[role.id]?.[item.id] ?? false;
-            const locked = role.id === ADMIN_ROLE;
-            return (
-              <td key={role.id} className="px-3 py-2 text-center">
-                <input
-                  type="checkbox"
-                  className={cn(
-                    "accent-primary size-4 align-middle",
-                    locked && "cursor-not-allowed opacity-60",
-                  )}
-                  checked={locked ? true : checked}
-                  disabled={locked}
-                  aria-label={`${item.label} visible to ${role.label}`}
-                  onChange={(e) =>
-                    !locked && onToggle(role.id, item.id, e.target.checked)
-                  }
-                />
-              </td>
-            );
-          })}
-        </tr>
+    <PageContainer className="flex flex-col gap-8">
+      <PageHeader
+        title="Administration"
+        description="Platform configuration and operations"
+      />
+
+      {ADMIN_SECTIONS.map((section) => (
+        <section key={section.id} className="flex flex-col gap-3">
+          <div>
+            <h2 className="text-section-heading">{section.label}</h2>
+            <p className="text-muted-foreground text-sm">
+              {section.description}
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {section.entries.map((entry) => (
+              <AdminTile key={entry.id} entry={entry} />
+            ))}
+          </div>
+        </section>
       ))}
-    </>
+    </PageContainer>
   );
 }
