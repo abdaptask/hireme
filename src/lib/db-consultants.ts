@@ -155,6 +155,7 @@ export async function getDbConsultantFull(id: string) {
             training: { orderBy: { createdAt: "desc" } },
             payroll: true,
             billing: true,
+            exceptions: { orderBy: { createdAt: "desc" } },
             auditEvents: { orderBy: { timestamp: "desc" }, take: 50 },
           },
         })
@@ -185,6 +186,7 @@ export async function getDbConsultantFull(id: string) {
     training: candidate?.training ?? [],
     payroll: candidate?.payroll ?? null,
     billing: candidate?.billing ?? null,
+    exceptions: candidate?.exceptions ?? [],
     auditEvents,
   };
 }
