@@ -241,6 +241,7 @@ model Candidate {
   exceptions     Exception[]
   payroll        PayrollReadiness?
   billing        BillingReadiness?
+  newHireRequest NewHireRequest?
 }
 
 model Consultant {
@@ -765,4 +766,80 @@ model AuditEvent {
   exception   Exception?   @relation(fields: [exceptionId], references: [id], onDelete: SetNull)
   integration Integration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
   client      Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+}
+
+// ─────────────────────────────────────────────────────────
+// NEW HIRE REQUEST (NHR) — the Recruiting Manager's intake form (§9 step 1)
+// ─────────────────────────────────────────────────────────
+
+model NewHireRequest {
+  id          String @id @default(cuid())
+  candidateId String @unique
+
+  // General details
+  accountExecutive  String?
+  recruiter         String?
+  recruitingManager String?
+
+  // Consultant details
+  status         String // Full-Time | Contract | Contract-to-Hire | Intern
+  subStatus      String? // Full Time hours | Part Time
+  middleName     String?
+  homePhone      String?
+  cellPhone      String?
+  emergencyName  String?
+  emergencyPhone String?
+  ssnLast4       String? // full SSN is never stored here — collected in the I-9 step
+  dateOfBirth    DateTime?
+  geid           String?
+  referred       Boolean  @default(false)
+  referrerName   String?
+  referrerAmount Float?
+  sourcedFrom    String?
+  sourcedOther   String?
+  workAuthorization String?
+  workAuthOther     String?
+  liveInState       String?
+
+  // Project details
+  clientName       String?
+  jobTitle         String?
+  jobId            String?
+  workCity         String?
+  workState        String?
+  directManager    String?
+  invoicingContact String?
+  timeTemplate     String?
+  startDate        DateTime?
+  termOfProject    String?
+
+  // Vendor details (C2C)
+  vendorName      String?
+  vendorContact   String?
+  vendorAddress   String?
+  vendorPhone     String?
+  vendorFederalId String?
+  vendorEmail     String?
+
+  // Pay details — contract
+  billRate           Float?
+  payRate            Float?
+  rateType           String?
+  taxTerms           String? // W-2 | 1099 | C2C
+  paymentTerms       String?
+  paymentTermsOther  String?
+
+  // Pay details — full time
+  salary    Float?
+  feePct    Float?
+  otherCost Float?
+
+  remarks      String?
+  specialTerms String?
+
+  submittedBy String
+  submittedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
 }

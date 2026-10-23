@@ -12,6 +12,15 @@ bump delivers a new vertical slice from the spec ([docs/ROADMAP.md](docs/ROADMAP
 ## [Unreleased]
 
 ### Added
+- **New Hire Request (NHR)** at `/onboarding/new`. This is the Recruiting Manager's intake form and replaces the Initiate Onboarding sheet.
+  - Same sections as the ApTask NHR: General, Consultant, Project, Vendor, Pay (Contract / Full-Time), Remarks, and Special Terms.
+  - Dropdowns wherever a list exists: staff, status, sub-status, sourced-from, work authorization, states, client, client contacts (filtered by client), time template, term, vendor, tax and payment terms. Free text is allowed where needed via "Other".
+  - Picking a client fills in the account executive and work location.
+  - A live checklist preview explains every item, and drafts autosave in the browser.
+  - Data goes to a new `NewHireRequest` table. Only the SSN's last 4 digits are stored.
+  - Full-time salary and fee % feed the Add / Drop FT columns.
+  - Submission is all-or-nothing.
+- **Roles:** the Recruiting Manager starts onboarding; the Onboarder reviews and completes it; the Account Manager can complete billing setup. Enforced in both the UI and the server.
 - **Live onboarding loop (first persisted end-to-end flow)**:
   - **Initiate Onboarding saves.** It creates the candidate and assignment, using real clients, vendors, and staff from the DB.
   - **The checklist builds itself** from employment type, work state (state tax form only where there's income tax), work authorization, and the client's own compliance rules. It covers documents, screenings, training, and equipment, and generates a package that explains why each item is included. It also creates payroll and billing readiness gates and records a welcome message.

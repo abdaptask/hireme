@@ -328,15 +328,7 @@ export function CandidatesTable({ candidates }: Props) {
                         employmentType:
                           c.employmentType === "C2C" ? "contract" : "full-time",
                       }}
-                      trigger={
-                        <button
-                          type="button"
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-muted-foreground hover:text-primary text-xs transition-colors"
-                        >
-                          Start
-                        </button>
-                      }
+                      variant="link"
                     />
                     <ChevronRight className="text-muted-foreground size-4" />
                   </div>

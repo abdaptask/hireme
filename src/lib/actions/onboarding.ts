@@ -8,6 +8,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { OnboardingFormData } from "@/lib/onboarding-form";
+import type { NhrForm } from "@/lib/onboarding/nhr";
 import * as svc from "@/lib/onboarding/service";
 import { portalCandidateId, staffActor } from "@/lib/onboarding/session";
 import { can, type OnboardingPermission } from "@/lib/onboarding/permissions";
@@ -182,4 +183,10 @@ export async function confirmEquipmentAction(equipmentId: string) {
     async () => svc.confirmEquipment(await requirePortal(), equipmentId),
     ["/portal"],
   );
+}
+
+// ── New Hire Request (Recruiting Manager intake) ─────────
+
+export async function createNhrAction(form: NhrForm) {
+  return run(async () => svc.createFromNhr(form, await requireStaff("initiate")), ["/candidates", "/onboarding", "/reports"]);
 }

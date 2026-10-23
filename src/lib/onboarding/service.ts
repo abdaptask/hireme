@@ -12,7 +12,8 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { db } from "@/lib/db";
-import type { OnboardingFormData } from "@/lib/onboarding-form";
+import { emptyFormData, type OnboardingFormData } from "@/lib/onboarding-form";
+import { isC2C, isFullTime, money, validateNhr, workAuthKey, type NhrForm } from "./nhr";
 import {
   STAGES,
   buildChecklist,
@@ -1673,3 +1674,174 @@ export async function getPortalTask(candidateId: string, taskId: string) {
     return { kind: "equipment" as const, name, equipment: e };
   return null;
 }
+
+// ─────────────────────────────────────────────────────────
+// New Hire Request (NHR) intake — Recruiting Manager (§9 step 1)
+// ─────────────────────────────────────────────────────────
+
+export async function createFromNhr(f: NhrForm, actor: Actor): Promise<{ id: string; items: number; onboarder: string | null }> {
+  const errors = validateNhr(f);
+  const first = Object.values(errors)[0];
+  if (first) throw new OnboardingError(`${first}${Object.keys(errors).length > 1 ? ` (and ${Object.keys(errors).length - 1} more)` : ""}.`);
+
+  const fullTime = isFullTime(f);
+  const salary = money(f.salary);
+  const feePct = Number(f.feePct.replace(/[%\s]/g, ""));
+  const fd = emptyFormData({
+    employmentType: fullTime ? "full-time" : "employee",
+    payTerms: fullTime ? "w2" : f.taxTerms === "C2C" ? "c2c" : f.taxTerms === "1099" ? "1099" : "w2",
+    candidateEmail: f.email,
+    firstName: f.firstName,
+    lastName: f.lastName,
+    mobile: f.cellPhone,
+    homePhone: f.homePhone,
+    address: f.street,
+    addressLine2: f.aptSuite,
+    city: f.city,
+    state: f.state,
+    zipCode: f.zip,
+    dateOfBirth: f.dateOfBirth,
+    sourcedFrom: f.sourcedFrom === "Other" ? f.sourcedOther : f.sourcedFrom,
+    workAuthorization: workAuthKey(f.workAuthorization),
+    authorizationExpiry: f.authExpiry,
+    client: f.client,
+    jobId: f.jobId,
+    jobTitle: f.jobTitle,
+    startDate: f.startDate,
+    tentativeEnd: f.endDate,
+    jobCategory: "",
+    vendorName: isC2C(f) ? f.vendorName : "",
+    liveInState: f.liveInState,
+    workStatus: f.workMode === "Onsite" ? "On-site" : f.workMode,
+    workCity: f.workCity,
+    workState: f.workState,
+    billRate: fullTime ? "" : f.billRate,
+    billRateType: f.rateType,
+    payRate: fullTime ? String(salary ?? "") : f.payRate,
+    payRateType: fullTime ? "Annual" : f.rateType,
+    assignedMembers: [
+      { role: "Recruiter", user: f.recruiter },
+      { role: "Account Manager", user: f.accountExecutive },
+    ],
+    remarks: f.remarks,
+    blockEmails: f.blockEmails,
+  });
+
+  const { id, items } = await createOnboarding(fd, { draft: false, actor });
+  try {
+    await recordNhr(id, f, actor, fullTime, salary, feePct);
+  } catch (e) {
+    // All-or-nothing: never leave a half-created onboarding case behind.
+    await deleteCandidateCascade(id);
+    throw e;
+  }
+  const c = await db.candidate.findUnique({ where: { id }, select: { onboarder: true } });
+  return { id, items, onboarder: c?.onboarder ?? null };
+}
+
+async function recordNhr(id: string, f: NhrForm, actor: Actor, fullTime: boolean, salary: number | null, feePct: number): Promise<void> {
+  // Full-time: record the placement fee where the Add / Drop report reads it (FT GP = fee ÷ 960 h).
+  if (fullTime && salary) {
+    await db.assignment.updateMany({
+      where: { candidateId: id },
+      data: { billRate: null, remarks: [`Direct hire — ${feePct}% fee on $${Math.round(salary).toLocaleString("en-US")} salary`, f.remarks].filter(Boolean).join(" · ") },
+    });
+  }
+
+  const day = (s: string) => (/^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(`${s}T12:00:00`) : null);
+  await db.newHireRequest.create({
+    data: {
+      candidateId: id,
+      accountExecutive: f.accountExecutive || null,
+      recruiter: f.recruiter || null,
+      recruitingManager: f.recruitingManager || null,
+      status: f.status,
+      subStatus: f.subStatus || null,
+      middleName: f.middleName || null,
+      homePhone: f.homePhone || null,
+      cellPhone: f.cellPhone || null,
+      emergencyName: f.emergencyName || null,
+      emergencyPhone: f.emergencyPhone || null,
+      ssnLast4: f.ssnLast4 || null,
+      dateOfBirth: day(f.dateOfBirth),
+      geid: f.geid || null,
+      referred: f.referred,
+      referrerName: f.referred ? f.referrerName || null : null,
+      referrerAmount: f.referred ? money(f.referrerAmount) : null,
+      sourcedFrom: f.sourcedFrom || null,
+      sourcedOther: f.sourcedFrom === "Other" ? f.sourcedOther : null,
+      workAuthorization: f.workAuthorization || null,
+      workAuthOther: f.workAuthorization === "Other" ? f.workAuthOther : null,
+      liveInState: f.liveInState || null,
+      clientName: f.client || null,
+      jobTitle: f.jobTitle || null,
+      jobId: f.jobId || null,
+      workCity: f.workCity || null,
+      workState: f.workState || null,
+      directManager: f.directManager || null,
+      invoicingContact: f.invoicingContact || null,
+      timeTemplate: f.timeTemplate || null,
+      startDate: day(f.startDate),
+      termOfProject: f.termOfProject || null,
+      vendorName: isC2C(f) ? f.vendorName : null,
+      vendorContact: isC2C(f) ? f.vendorContact || null : null,
+      vendorAddress: isC2C(f) ? f.vendorAddress || null : null,
+      vendorPhone: isC2C(f) ? f.vendorPhone || null : null,
+      vendorFederalId: isC2C(f) ? f.vendorFederalId || null : null,
+      vendorEmail: isC2C(f) ? f.vendorEmail || null : null,
+      billRate: fullTime ? null : money(f.billRate),
+      payRate: fullTime ? null : money(f.payRate),
+      rateType: fullTime ? null : f.rateType,
+      taxTerms: fullTime ? "W-2" : f.taxTerms || null,
+      paymentTerms: fullTime ? null : f.paymentTerms === "Other (specify)" ? f.paymentTermsOther : f.paymentTerms || null,
+      salary: fullTime ? salary : null,
+      feePct: fullTime ? feePct : null,
+      otherCost: fullTime ? money(f.otherCost) : null,
+      remarks: f.remarks || null,
+      specialTerms: f.specialTerms || null,
+      submittedBy: actor.name,
+    },
+  });
+  await audit({ action: "CREATED", entityType: "NewHireRequest", entityId: id, entityLabel: `NHR — ${f.firstName} ${f.lastName}`, actor, newValue: `${f.status} · ${f.client} · start ${f.startDate}`, candidateId: id });
+}
+
+/** Remove a candidate and every row that references it (several relations are SetNull, not cascade). */
+export async function deleteCandidateCascade(id: string): Promise<void> {
+  const where = { candidateId: id };
+  await db.auditEvent.deleteMany({ where });
+  await db.document.deleteMany({ where });
+  await db.screening.deleteMany({ where });
+  await db.training.deleteMany({ where });
+  await db.equipment.deleteMany({ where });
+  await db.communication.deleteMany({ where });
+  await db.exception.deleteMany({ where });
+  await db.assignment.deleteMany({ where });
+  await db.package.deleteMany({ where: { id: `pkg-${id}` } });
+  await db.candidate.deleteMany({ where: { id } }); // readiness + NHR cascade
+  await fs.rm(path.join(STORAGE_ROOT, id), { recursive: true, force: true });
+}
+
+/** Dropdown data for the NHR form: staff, clients with contacts and rules, vendors. */
+export async function nhrOptions() {
+  const [clients, cands, consultants] = await Promise.all([
+    db.client.findMany({ include: { contacts: true, rules: true }, orderBy: { name: "asc" } }),
+    db.candidate.findMany({ select: { recruiter: true, vendor: true } }),
+    db.consultant.findMany({ select: { vendor: true, accountManager: true } }),
+  ]);
+  const uniq = (xs: (string | null | undefined)[]) => [...new Set(xs.filter((x): x is string => !!x))].sort();
+  return {
+    accountExecutives: uniq([...clients.map((c) => c.accountManager), ...consultants.map((c) => c.accountManager)]),
+    recruiters: uniq(cands.map((c) => c.recruiter)),
+    recruitingManagers: ["Robert Alvarez", "Victoria Chen"],
+    vendors: uniq([...cands.map((c) => c.vendor), ...consultants.map((c) => c.vendor)]),
+    clients: clients.map((c) => ({
+      name: c.name,
+      accountManager: c.accountManager,
+      hq: c.hq,
+      contacts: c.contacts.map((k) => ({ name: k.name, title: k.title, type: k.type })),
+      rules: c.rules.map((r) => ({ label: r.label, category: r.category })),
+    })),
+  };
+}
+
+export type NhrOptions = Awaited<ReturnType<typeof nhrOptions>>;

@@ -5,6 +5,7 @@
  */
 import { db } from "@/lib/db";
 import { emptyFormData } from "@/lib/onboarding-form";
+import { emptyNhr } from "@/lib/onboarding/nhr";
 import { templateFor } from "@/lib/onboarding/checklist";
 import * as svc from "@/lib/onboarding/service";
 import { removeCandidate } from "./remove-candidate";
@@ -139,6 +140,51 @@ async function main() {
   check(tl.length > 25, `timeline has ${tl.length} entries`);
 
   await cleanup(id);
+
+  console.log("8. New Hire Request (full-time) — Recruiting Manager intake");
+  const rm = { name: "Victoria Chen", role: "recruiting-manager" };
+  const nhr = emptyNhr({
+    accountExecutive: "Priya Shah",
+    recruiter: "Mia Thompson",
+    recruitingManager: "Victoria Chen",
+    status: "Full-Time",
+    subStatus: "Full Time",
+    firstName: "Konstantin",
+    middleName: "G",
+    lastName: "Smoketest",
+    street: "720 North Dixie Hwy",
+    aptSuite: "Apt #405",
+    city: "Palm Beach",
+    state: "FL",
+    cellPhone: "561-900-6432",
+    ssnLast4: "6789",
+    dateOfBirth: "1966-04-28",
+    email: `smoke.nhr.${Date.now()}@example.com`,
+    sourcedFrom: "JobBoard - Monster",
+    workAuthorization: "Citizen",
+    liveInState: "FL",
+    client: "Apex Dynamics",
+    jobTitle: "Embedded Software Engineer",
+    jobId: "24-02630",
+    workCity: "Morrisville",
+    workState: "NC",
+    directManager: "Marcus Lee",
+    startDate: start,
+    termOfProject: "Permanent (Full-Time)",
+    salary: "85,000",
+    feePct: "",
+  });
+  await expectErr(svc.createFromNhr(nhr, rm), "NHR requires fee % for full-time");
+  const r = await svc.createFromNhr({ ...nhr, feePct: "20" }, rm);
+  const saved = await db.newHireRequest.findUnique({ where: { candidateId: r.id } });
+  check(saved?.salary === 85000 && saved.feePct === 20 && saved.ssnLast4 === "6789", "NHR saved (salary, fee, SSN last 4 only)");
+  check(saved?.sourcedFrom === "JobBoard - Monster" && saved.directManager === "Marcus Lee", "NHR keeps source and direct manager");
+  const a = await db.assignment.findFirst({ where: { candidateId: r.id } });
+  check(a?.remarks?.startsWith("Direct hire — 20% fee on $85,000 salary"), "FT fee recorded for Add / Drop (FT GP = fee / 960 h)");
+  const ftDocs = (await db.document.findMany({ where: { candidateId: r.id } })).map((d) => d.name);
+  check(ftDocs.includes("Offer Letter") && ftDocs.includes("State Tax Withholding") && !ftDocs.includes("Work Authorization Document"), "FT checklist: offer letter, NC state tax, no authorization upload for a citizen");
+  check(!!r.onboarder, `case auto-assigned to onboarder ${r.onboarder}`);
+  await cleanup(r.id);
   console.log("\nAll checks passed; smoke candidate removed.");
 }
 

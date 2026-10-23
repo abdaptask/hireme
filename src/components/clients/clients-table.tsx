@@ -222,15 +222,7 @@ export function ClientsTable({ clients, dbIds }: Props) {
                     <div className="flex items-center gap-2">
                       <InitiateOnboardingSheet
                         prefill={{ client: client.name }}
-                        trigger={
-                          <button
-                            type="button"
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-muted-foreground hover:text-primary text-xs transition-colors"
-                          >
-                            Start
-                          </button>
-                        }
+                        variant="link"
                       />
                       <ChevronRight className="text-muted-foreground size-4" />
                     </div>
