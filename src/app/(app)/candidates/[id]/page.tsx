@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { viewerRole } from "@/lib/onboarding/session";
+import { can } from "@/lib/onboarding/permissions";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import {
@@ -266,6 +268,7 @@ export default async function CandidateRecordPage({
   const checklist = dbCandidate ? await getChecklist(id) : null;
   const liveTimeline = checklist ? await getTimeline(id) : null;
   const placed = dbCandidate?.status === "PLACED";
+  const role = await viewerRole();
 
   // Build a CandidateDetail — from DB or mock
   let c: CandidateDetail | undefined;
@@ -590,6 +593,8 @@ export default async function CandidateRecordPage({
                     rows={checklist}
                     progress={dbCandidate.progress}
                     placed={placed}
+                    canReview={can(role, "review")}
+                    canBilling={can(role, "billing")}
                   />
                 </TabsContent>
               )}
@@ -726,26 +731,58 @@ export default async function CandidateRecordPage({
                 <ul className="flex flex-col gap-1.5 text-sm">
                   {(
                     [
-                      ["Needs your review", checklist.filter((r) => !r.done && r.actions.length).length],
-                      ["Waiting on candidate", checklist.filter((r) => !r.done && !r.actions.length && r.owner === "Candidate").length],
-                      ["Waiting on vendors / IT / gates", checklist.filter((r) => !r.done && !r.actions.length && r.owner !== "Candidate").length],
+                      [
+                        "Needs your review",
+                        checklist.filter((r) => !r.done && r.actions.length)
+                          .length,
+                      ],
+                      [
+                        "Waiting on candidate",
+                        checklist.filter(
+                          (r) =>
+                            !r.done &&
+                            !r.actions.length &&
+                            r.owner === "Candidate",
+                        ).length,
+                      ],
+                      [
+                        "Waiting on vendors / IT / gates",
+                        checklist.filter(
+                          (r) =>
+                            !r.done &&
+                            !r.actions.length &&
+                            r.owner !== "Candidate",
+                        ).length,
+                      ],
                       ["Complete", checklist.filter((r) => r.done).length],
                     ] as const
                   ).map(([label, n]) => (
-                    <li key={label} className="flex items-center justify-between">
+                    <li
+                      key={label}
+                      className="flex items-center justify-between"
+                    >
                       <span className="text-muted-foreground">{label}</span>
                       <span className="font-semibold tabular-nums">{n}</span>
                     </li>
                   ))}
                 </ul>
                 <p className="text-muted-foreground mt-3 border-t pt-3 text-xs leading-relaxed">
-                  Risk is {c.risk.replace("-", " ")}: {c.progress}% complete with {c.startInDays} day{c.startInDays === 1 ? "" : "s"} to start
-                  {checklist.some((r) => ["REJECTED", "CORRECTION_REQUIRED"].includes(r.status)) ? ", and a document was sent back for correction" : ""}. It updates
-                  automatically as items are completed (§33).
+                  Risk is {c.risk.replace("-", " ")}: {c.progress}% complete
+                  with {c.startInDays} day{c.startInDays === 1 ? "" : "s"} to
+                  start
+                  {checklist.some((r) =>
+                    ["REJECTED", "CORRECTION_REQUIRED"].includes(r.status),
+                  )
+                    ? ", and a document was sent back for correction"
+                    : ""}
+                  . It updates automatically as items are completed (§33).
                 </p>
               </div>
             ) : (
-              <CandidateAiPanel summary={aiSummary} recommendations={candidateRecommendations} />
+              <CandidateAiPanel
+                summary={aiSummary}
+                recommendations={candidateRecommendations}
+              />
             )}
 
             <div className="bg-card rounded-xl border p-4 shadow-xs">

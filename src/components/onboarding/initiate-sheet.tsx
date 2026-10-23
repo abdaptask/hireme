@@ -12,6 +12,8 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useEntitlements } from "@/components/providers/entitlements-provider";
+import { can } from "@/lib/onboarding/permissions";
 import {
   AlertCircle,
   Check,
@@ -1095,6 +1097,10 @@ export function InitiateOnboardingSheet({ trigger, prefill }: Props) {
     setStep(1);
     setData(emptyFormData(prefill));
   }
+
+  // Onboarding is started by the Recruiting Manager; onboarders continue it (§5, §25).
+  const { viewAs } = useEntitlements();
+  if (!can(viewAs, "initiate")) return null;
 
   const defaultTrigger = (
     <Button size="sm" className="gap-1.5">

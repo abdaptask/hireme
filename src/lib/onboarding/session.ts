@@ -8,7 +8,11 @@
 
 import { cookies } from "next/headers";
 import type { RoleId } from "@/lib/roles";
-import { DEMO_VIEWERS, VIEW_AS_COOKIE, parseRole } from "@/lib/report-engine/access";
+import {
+  DEMO_VIEWERS,
+  VIEW_AS_COOKIE,
+  parseRole,
+} from "@/lib/report-engine/access";
 import type { Actor } from "./service";
 
 export const PORTAL_COOKIE = "hireme.portalCandidate";
@@ -19,14 +23,19 @@ const NAME_FOR_ROLE: Partial<Record<RoleId, string>> = {
   recruiter: DEMO_VIEWERS.recruiter,
   "team-lead": DEMO_VIEWERS.teamLead.name,
   "account-manager": DEMO_VIEWERS.accountManager,
-  "recruiting-manager": "Recruiting Manager",
+  "recruiting-manager": "Victoria Chen",
 };
 
 /** Internal staff actor, or null for roles that can't act on onboarding records. */
-export async function staffActor(): Promise<Actor | null> {
+export async function staffActor(): Promise<(Actor & { role: RoleId }) | null> {
   const role = parseRole((await cookies()).get(VIEW_AS_COOKIE)?.value);
   const name = NAME_FOR_ROLE[role];
   return name ? { name, role } : null;
+}
+
+/** The current "view as" role (server-side). */
+export async function viewerRole(): Promise<RoleId> {
+  return parseRole((await cookies()).get(VIEW_AS_COOKIE)?.value);
 }
 
 export async function portalCandidateId(): Promise<string | null> {

@@ -315,15 +315,28 @@ function Row({
 
 export function ChecklistPanel({
   candidateId,
-  rows,
+  rows: allRows,
   progress,
   placed,
+  canReview,
+  canBilling,
 }: {
   candidateId: string;
   rows: ChecklistRow[];
   progress: number;
   placed: boolean;
+  /** Onboarder actions: review, screening, equipment, Day 1 (§25). */
+  canReview: boolean;
+  /** Billing setup (onboarder or account manager). */
+  canBilling: boolean;
 }) {
+  // Only the actions this role may take; other roles see status read-only.
+  const rows = allRows.map((r) => ({
+    ...r,
+    actions: r.actions.filter((a) =>
+      a === "billing" ? canBilling : canReview,
+    ),
+  }));
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -335,24 +348,31 @@ export function ChecklistPanel({
     });
   };
 
+  // Bucket by whether staff action is pending at all — independent of this viewer's rights.
+  const staffPending = new Set(
+    allRows.filter((r) => r.actions.length).map((r) => r.id),
+  );
   const groups: { title: string; hint: string; rows: ChecklistRow[] }[] = [
     {
-      title: "Needs your action",
+      title:
+        canReview || canBilling
+          ? "Needs your action"
+          : "Needs onboarder action",
       hint: "Review submissions, record results, move provisioning forward.",
-      rows: rows.filter((r) => !r.done && r.actions.length),
+      rows: rows.filter((r) => !r.done && staffPending.has(r.id)),
     },
     {
       title: "Waiting on candidate",
       hint: "They see these in their portal with instructions.",
       rows: rows.filter(
-        (r) => !r.done && !r.actions.length && r.owner === "Candidate",
+        (r) => !r.done && !staffPending.has(r.id) && r.owner === "Candidate",
       ),
     },
     {
       title: "Waiting on others",
       hint: "Vendors, IT, and readiness gates that follow from the items above.",
       rows: rows.filter(
-        (r) => !r.done && !r.actions.length && r.owner !== "Candidate",
+        (r) => !r.done && !staffPending.has(r.id) && r.owner !== "Candidate",
       ),
     },
     { title: "Done", hint: "", rows: rows.filter((r) => r.done) },
@@ -384,7 +404,7 @@ export function ChecklistPanel({
             aria-label="Saving"
           />
         )}
-        {!placed && (
+        {!placed && canReview && (
           <Button
             disabled={progress < 100 || pending}
             onClick={() => run(() => confirmStartAction(candidateId))}
