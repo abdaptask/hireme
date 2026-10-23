@@ -5,7 +5,13 @@ import { ArrowLeft, BarChart3, Construction } from "lucide-react";
 import { PageContainer } from "@/components/page";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ReportView } from "@/components/reports/engine/report-view";
 import { getCatalogReport } from "@/lib/report-catalog";
+import { getReport, reportMeta, resolveControls, sectionLabel } from "@/lib/report-engine/registry";
+import { loadDataset, scopeDataset } from "@/lib/report-engine/dataset";
+import { resolveRange } from "@/lib/report-engine/date-range";
+
+export const dynamic = "force-dynamic"; // reports always reflect live data (§72 freshness)
 
 export async function generateMetadata({
   params,
@@ -13,16 +19,54 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const r = getCatalogReport(slug);
+  const r = getReport(slug) ?? getCatalogReport(slug);
   return { title: r ? r.name : "Report" };
 }
 
-export default async function ReportPlaceholderPage({
+export default async function ReportPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { slug } = await params;
+  const sp = await searchParams;
+  const one = (k: string) => (Array.isArray(sp[k]) ? sp[k]?.[0] : sp[k]) as string | undefined;
+
+  // Live engine report (§49–§73).
+  const def = getReport(slug);
+  if (def) {
+    const full = await loadDataset();
+    const scope = def.dateScope ?? "activity";
+    const range = scope === "none" ? undefined : resolveRange(one("range"), one("from"), one("to"), full.now);
+    const ds = range && scope === "activity" ? scopeDataset(full, range.from, range.to) : full;
+
+    const controls = resolveControls(def, full);
+    const values = Object.fromEntries(controls.map((c) => [c.key, one(c.key) ?? c.default]));
+    const result = def.load(ds, { subjectId: one("subject"), range, params: values });
+
+    return (
+      <ReportView
+        meta={reportMeta(def)}
+        section={sectionLabel(def.section)}
+        result={result}
+        refreshedAt={full.now.toISOString()}
+        filters={{
+          dateEnabled: scope !== "none",
+          dateBasis: def.dateBasis ?? (scope === "activity" ? "Records created or active in the range" : undefined),
+          range: one("range") ?? "all",
+          from: one("from") ?? "",
+          to: one("to") ?? "",
+          rangeLabel: range?.label ?? null,
+          controls,
+          values,
+        }}
+      />
+    );
+  }
+
+  // Legacy catalog entry not yet built.
   const report = getCatalogReport(slug);
   if (!report) notFound();
 

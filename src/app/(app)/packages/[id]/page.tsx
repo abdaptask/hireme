@@ -34,6 +34,7 @@ import {
   type PackageRule,
   type PackageSection,
 } from "@/lib/packages";
+import { getDbPackage } from "@/lib/db-packages";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -300,7 +301,7 @@ export default async function PackageDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const pkg = getPackage(id);
+  const pkg = getPackage(id) ?? (await getDbPackage(id));
 
   if (!pkg) {
     notFound();

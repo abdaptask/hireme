@@ -10,6 +10,7 @@
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { seedBulk } from "./seed-bulk";
 
 // For seeding we use the direct (non-pooled) URL to avoid pgBouncer limitations
 // on transaction mode. Falls back to DATABASE_URL if UNPOOLED isn't set.
@@ -27,6 +28,9 @@ const prisma = new PrismaClient({ adapter });
 
 async function main() {
   console.log("🌱  Starting seed…");
+  // Rows created with a now() default during this run fall inside
+  // [seedStartedAt, shift time] and are excluded from the date shift below.
+  const seedStartedAt = new Date(Date.now() - 60_000);
 
   // ─────────────────────────────────────────────────────────
   // CLEANUP — delete all rows in FK-safe order so the seed is
@@ -35,6 +39,8 @@ async function main() {
   console.log("  → Cleaning existing data");
 
   await prisma.auditEvent.deleteMany({});
+  await prisma.integrationEvent.deleteMany({});
+  await prisma.integration.deleteMany({});
   await prisma.communication.deleteMany({});
   await prisma.training.deleteMany({});
   await prisma.equipment.deleteMany({});
@@ -1605,7 +1611,116 @@ async function main() {
     await prisma.consultant.create({ data: c });
   }
 
+  // ─────────────────────────────────────────────────────────
+  // DATE FRESHNESS — the hand-written rows above use absolute dates
+  // authored when "today" was 2026-06-08. Shift every explicit DateTime
+  // forward by (today − baseline) so the dataset never looks stale.
+  // Runs BEFORE bulk generation (bulk rows are already relative to now).
+  // ─────────────────────────────────────────────────────────
+  await shiftHandWrittenDates(seedStartedAt);
+
+  // ─────────────────────────────────────────────────────────
+  // BULK — large deterministic dataset (prisma/seed-bulk.ts)
+  // ─────────────────────────────────────────────────────────
+  await seedBulk(prisma);
+
+  await printCounts();
   console.log("✅  Seed complete.");
+}
+
+const HAND_WRITTEN_BASELINE = new Date("2026-06-08T00:00:00");
+
+// Explicitly-set DateTime columns per table (createdAt/updatedAt excluded —
+// they default to now()).
+const SHIFT_COLUMNS: Record<string, string[]> = {
+  Candidate: ["startDate", "lastContact"],
+  Consultant: ["startDate", "endDate"],
+  Assignment: ["startDate", "endDate"],
+  Package: ["effectiveDate", "expirationDate"],
+  PackageApproval: ["approvedAt"],
+  PackageDispatch: ["sentAt"],
+  Document: ["expiresAt", "reviewedAt", "uploadedAt"],
+  Screening: ["orderedAt", "consentedAt", "completedAt", "estimatedCompletion"],
+  Equipment: ["shippedAt", "estimatedDelivery", "deliveredAt", "returnedAt"],
+  Training: ["dueDate", "completedAt"],
+  Communication: ["sentAt", "openedAt", "respondedAt"],
+  Exception: ["resolutionDeadline", "resolvedAt"],
+  Integration: ["lastSync", "lastSuccess", "authExpires"],
+  IntegrationEvent: ["timestamp"],
+  AuditEvent: ["timestamp"],
+};
+
+async function shiftHandWrittenDates(seedStartedAt: Date) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Math.round((today.getTime() - HAND_WRITTEN_BASELINE.getTime()) / 86_400_000);
+  if (days <= 0) return;
+  console.log(`  → Shifting hand-written dates forward ${days} days`);
+
+  // Timestamps are stored as UTC "timestamp without time zone" — compare in UTC.
+  const fmt = (d: Date) => d.toISOString().replace("T", " ").replace("Z", "");
+  const windowStart = fmt(seedStartedAt);
+  const windowEnd = fmt(new Date(Date.now() + 60_000));
+
+  for (const [table, cols] of Object.entries(SHIFT_COLUMNS)) {
+    for (const col of cols) {
+      await prisma.$executeRawUnsafe(
+        `UPDATE "${table}" SET "${col}" = "${col}" + interval '${days} days'
+         WHERE "${col}" IS NOT NULL
+           AND "${col}" NOT BETWEEN $1::timestamp AND $2::timestamp`,
+        windowStart,
+        windowEnd,
+      );
+    }
+  }
+
+  // ClientPromise dates are 'YYYY-MM-DD' strings; labels may embed them too.
+  const shiftYmd = (s: string) => {
+    const d = new Date(`${s}T12:00:00Z`);
+    if (Number.isNaN(d.getTime())) return s;
+    return new Date(d.getTime() + days * 86_400_000).toISOString().slice(0, 10);
+  };
+  const promises = await prisma.clientPromise.findMany();
+  for (const p of promises) {
+    await prisma.clientPromise.update({
+      where: { id: p.id },
+      data: {
+        promisedDate: shiftYmd(p.promisedDate),
+        actualDate: p.actualDate ? shiftYmd(p.actualDate) : null,
+        label: p.label.replace(/\d{4}-\d{2}-\d{2}/g, shiftYmd),
+      },
+    });
+  }
+}
+
+async function printCounts() {
+  const counts: [string, number][] = [
+    ["Client", await prisma.client.count()],
+    ["ClientContact", await prisma.clientContact.count()],
+    ["ClientPromise", await prisma.clientPromise.count()],
+    ["ComplianceRule", await prisma.complianceRule.count()],
+    ["Candidate", await prisma.candidate.count()],
+    ["Consultant", await prisma.consultant.count()],
+    ["Assignment", await prisma.assignment.count()],
+    ["Package", await prisma.package.count()],
+    ["PackageItem", await prisma.packageItem.count()],
+    ["PackageRule", await prisma.packageRule.count()],
+    ["PackageApproval", await prisma.packageApproval.count()],
+    ["PackageDispatch", await prisma.packageDispatch.count()],
+    ["Document", await prisma.document.count()],
+    ["Screening", await prisma.screening.count()],
+    ["Equipment", await prisma.equipment.count()],
+    ["PayrollReadiness", await prisma.payrollReadiness.count()],
+    ["BillingReadiness", await prisma.billingReadiness.count()],
+    ["Training", await prisma.training.count()],
+    ["Communication", await prisma.communication.count()],
+    ["Exception", await prisma.exception.count()],
+    ["Integration", await prisma.integration.count()],
+    ["IntegrationEvent", await prisma.integrationEvent.count()],
+    ["AuditEvent", await prisma.auditEvent.count()],
+  ];
+  console.log("  → Row counts");
+  for (const [t, n] of counts) console.log(`      ${t.padEnd(18)} ${n}`);
 }
 
 main()

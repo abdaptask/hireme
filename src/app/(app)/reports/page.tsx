@@ -15,6 +15,13 @@ import {
   REPORT_CATALOG,
   type ReportCategory,
 } from "@/lib/report-catalog";
+import { ReportLibrary } from "@/components/reports/engine/report-library";
+import {
+  REPORTS,
+  REPORT_PERSONAS,
+  REPORT_SECTIONS,
+  reportMeta,
+} from "@/lib/report-engine/registry";
 
 export const metadata: Metadata = { title: "Reports" };
 
@@ -64,7 +71,13 @@ export default function ReportsHubPage() {
     <PageContainer className="flex flex-col gap-6">
       <PageHeader
         title="Reports"
-        description="Enterprise reporting catalog. Each report is a placeholder — built out individually as we reach it."
+        description="Enterprise reporting for every persona — live on platform data, with drill-down, metric definitions, and export."
+      />
+
+      <ReportLibrary
+        reports={REPORTS.map(reportMeta)}
+        sections={REPORT_SECTIONS}
+        personas={REPORT_PERSONAS}
       />
 
       {/* Live analytics previews already built in this app */}
@@ -89,9 +102,9 @@ export default function ReportsHubPage() {
         </div>
       </section>
 
-      {/* Real ApTask report catalog — placeholders */}
+      {/* ApTask back-office report catalog */}
       <section>
-        <h2 className="text-section-heading mb-2.5">Report catalog</h2>
+        <h2 className="text-section-heading mb-2.5">Back-office catalog</h2>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           {REPORT_CATALOG.map((c) => (
             <CategoryCard key={c.id} category={c} />

@@ -12,6 +12,17 @@ bump delivers a new vertical slice from the spec ([docs/ROADMAP.md](docs/ROADMAP
 ## [Unreleased]
 
 ### Added
+- **Report engine + persona report library** (§49–§73) — 107 live reports computed from the operational database, organized by persona (Super Admin, Executive, Onboarder, Recruiter, Recruiting Manager, Account Manager, Candidate) and by the 18 §50.1 sections:
+  - Operational & executive (§51, §67), Onboarder (§53), Recruiter (§54), Recruiting Manager (§55), Client (§56), Compliance (§57), Screening (§58), Payroll (§59), Billing (§60), Equipment (§61), Training (§62), Communications (§63), AI (§64), Integrations (§65), Audit (§66), Lifecycle (§68), plus the WC New Hire back-office report
+  - Candidate reports (§52) are scoped to one candidate and expose only candidate-safe statuses
+  - One generic viewer: governance header (owner, freshness, certification, restricted flag), KPI tiles, bar / trend / funnel / stacked charts with click-to-drill into the table, search, multi-type sort, pagination, CSV export, print, metric definitions
+- **Report date filters** (§50.3) — every report gets a date-range filter (last 7/30/90 days, this/last month, this/last quarter, YTD, last 12 months, custom from–to). Activity records are scoped by their natural date; trend charts follow the range; forward-looking reports hide the filter. Filters live in the URL so views can be shared.
+- **Add / Drop Report** — Month (or week / quarter / year) · Add # · Add GP · Add NP · Drop # · Drop GP · Drop NP · Diff # · Diff GP · Diff NP · FT # · FT GP · Diff # with FT · Diff $ with FT, with a totals row. GP = bill − pay per hour; NP nets out burden (15% W-2 / CTH) and a 3% MSP fee. FT = direct-hire placements plus contract-to-perm conversions, with FT GP = placement fee ÷ 960 hours. $ basis switchable between per hour, week, month, and year. Also a by-client table with the same columns, contract headcount and run-rate, and per-worker detail; filters for client and contract type. Seed adds 60 direct-hire placements and 18 months of contract churn.
+- Report tables support totals rows and multiple tables per report; CSV export includes totals.
+- **Bulk mock dataset** (`prisma/seed-bulk.ts`) — deterministic, date-relative data: 30 clients, 256 candidates, 155 consultants, 324 assignments, 47 packages, 1.3K documents, 336 screenings, 404 assets, 857 trainings, 1.5K communications, 125 exceptions, 21 integrations with 1.5K events, 2K audit events. Hand-written seed dates now shift forward to stay current.
+
+### Fixed
+- Package detail pages 404'd for database-backed packages; the page now falls back to the DB and normalizes legacy section labels.
 - **Persona Launchpad** — JobDiva-inspired category-grouped icon grid on every persona home (§5):
   - 7 persona configs (Super Admin, Onboarder, Recruiter, Recruiting Manager, Team Lead, Account Manager, Candidate)
   - 6 categories per workspace × 4-6 tiles per category
