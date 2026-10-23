@@ -34,6 +34,9 @@ import {
   TEAM,
   type PortalTask,
 } from "@/lib/portal-data";
+import { LivePortal } from "@/components/portal/live/live-portal";
+import { getPortalView } from "@/lib/onboarding/service";
+import { portalCandidateId } from "@/lib/onboarding/session";
 
 export const metadata: Metadata = { title: "Your Onboarding | HireMe" };
 
@@ -336,7 +339,16 @@ function CommsFeed() {
 
 // ─── main page ───────────────────────────────────────────────
 
-export default function PortalPage() {
+/** Live portal for a real candidate session (/portal/start?c=…); demo otherwise. */
+export default async function PortalPage() {
+  const id = await portalCandidateId();
+  const view = id ? await getPortalView(id) : null;
+  if (view) return <LivePortal view={view} />;
+  return <DemoPortal />;
+}
+
+/** Static demo concierge (Sarah Chen) — shown when no candidate session exists. */
+function DemoPortal() {
   const actionRequired = PORTAL_TASKS.filter((t) => t.group === "action-required");
   const upNext = PORTAL_TASKS.filter((t) => t.group === "up-next");
   const inReview = PORTAL_TASKS.filter((t) => t.group === "in-review");

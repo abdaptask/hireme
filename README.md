@@ -39,6 +39,30 @@ npm run dev      # http://localhost:3000  → redirects to /command-center
 
 Routes: `/command-center` (Super Admin), `/portal` (Candidate).
 
+### Local database
+
+Pages read a Postgres database through Prisma. Locally, run Postgres in Docker and point `.env.local` at it:
+
+```bash
+docker run -d --name hireme-postgres -e POSTGRES_USER=hireme -e POSTGRES_PASSWORD=hireme \
+  -e POSTGRES_DB=hireme -p 5433:5432 -v hireme-pgdata:/var/lib/postgresql/data postgres:16
+# .env.local
+# DATABASE_URL="postgresql://hireme:hireme@localhost:5433/hireme"
+# DATABASE_URL_UNPOOLED="postgresql://hireme:hireme@localhost:5433/hireme"
+npm run db:generate && npx prisma migrate deploy && npm run db:seed
+```
+
+### Try a real onboarding
+
+1. **Start it.** Switch the role to **Recruiting Manager** (sidebar, bottom), open **Candidates → New Hire Request**, attach the raw and formatted resumes (the raw one pre-fills name, email, phone and location), complete the NHR, then **Submit NHR**. The checklist is generated from the client's rules and the case is assigned to an Onboarder.
+2. **Be the candidate.** Click **Open candidate portal**, then complete forms (type your name to sign), upload files, consent to screening, and take the training.
+3. **Review it.** Switch to **Onboarder**. On the candidate's record, the **Checklist** tab lets you approve or send items back, record screening results, ship equipment, complete billing setup, and confirm Day 1. The **Resume & skills** tab shows both resumes and the extracted skills profile.
+4. **See the talent pool.** **Reports → Talent Intelligence → Talent Expertise** summarizes specialties, skills, seniority and certifications across consultants and candidates.
+
+Resume analysis uses a built-in extractor (no external service). To use Claude instead, add `ANTHROPIC_API_KEY=...` to `.env.local` and restart; existing profiles can be refreshed with **Re-run analysis** on the Resume & skills tab. If Claude is unavailable, the built-in extractor is used and the reason is noted on the profile.
+
+Uploaded files are stored in `storage/` (git-ignored). Remove a test candidate with `npm run candidate:remove <id|email>`; `npm run test:onboarding` runs the whole flow automatically.
+
 ## Scripts
 
 | Script | Purpose |

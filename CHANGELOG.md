@@ -12,6 +12,30 @@ bump delivers a new vertical slice from the spec ([docs/ROADMAP.md](docs/ROADMAP
 ## [Unreleased]
 
 ### Added
+- **Resumes and talent intelligence.**
+  - The NHR now requires both the **raw** and the **formatted** resume (PDF, Word .docx or text, up to 10 MB). Both files are kept on the candidate record; access is limited to internal staff.
+  - The raw resume is analyzed as soon as it's attached: blank NHR fields (name, email, cell, city / state / zip) are pre-filled, and the specialty, skills, title, years of experience and seniority are shown before submitting.
+  - On save, the skills profile (specialty, skills, title, years, seniority, certifications, education) is stored on the candidate. Mismatches with the NHR (name, email) are flagged, and every analysis is audited.
+  - Analysis runs on a built-in extractor by default and switches to Claude (`claude-opus-5-5`, structured output) when `ANTHROPIC_API_KEY` is set, falling back to the built-in extractor on any failure. The extractor used and its confidence are always shown.
+  - New **Resume & skills** tab on the Candidate 360: view or download both resumes, see the extracted profile and warnings, and re-run the analysis.
+  - New **Talent Expertise** report (Talent Intelligence section): talent by specialty, deepest skills, seniority mix, certifications, profiles added over time, a skill inventory with bench depth, a specialty summary and a talent directory. It covers consultants and candidates, with drill-down.
+- **New Hire Request (NHR)** at `/onboarding/new`. This is the Recruiting Manager's intake form and replaces the Initiate Onboarding sheet.
+  - Same sections as the ApTask NHR: General, Consultant, Project, Vendor, Pay (Contract / Full-Time), Remarks, and Special Terms.
+  - Dropdowns wherever a list exists: staff, status, sub-status, sourced-from, work authorization, states, client, client contacts (filtered by client), time template, term, vendor, tax and payment terms. Free text is allowed where needed via "Other".
+  - Picking a client fills in the account executive and work location.
+  - A live checklist preview explains every item, and drafts autosave in the browser.
+  - Data goes to a new `NewHireRequest` table. Only the SSN's last 4 digits are stored.
+  - Full-time salary and fee % feed the Add / Drop FT columns.
+  - Submission is all-or-nothing.
+- **Roles:** the Recruiting Manager starts onboarding; the Onboarder reviews and completes it; the Account Manager can complete billing setup. Enforced in both the UI and the server.
+- **Live onboarding loop (first persisted end-to-end flow)**:
+  - **Initiate Onboarding saves.** It creates the candidate and assignment, using real clients, vendors, and staff from the DB.
+  - **The checklist builds itself** from employment type, work state (state tax form only where there's income tax), work authorization, and the client's own compliance rules. It covers documents, screenings, training, and equipment, and generates a package that explains why each item is included. It also creates payroll and billing readiness gates and records a welcome message.
+  - **Candidate portal** (`/portal/start?c=<id>`). Mobile-first: forms with typed e-signature (sensitive fields stored masked), file upload with camera capture and a quality pre-check, screening consent, a training course with quiz, and equipment receipt. The static demo portal stays for visitors without a session.
+  - **Onboarder review** on the Candidate 360 Checklist tab: approve, request correction, or reject with a reason (the candidate is notified); record screening results; move equipment through approve → ship → deliver; complete billing setup (PO, cost center, worker / VMS IDs); confirm Day 1 (blocked until compliance, payroll, and billing are ready).
+  - **Recalculated on every action:** progress, stage, the start-date risk score, and the readiness gates. Every step writes an audit event; the timeline, readiness radar, and next best action come from live data.
+  - **Local file storage** under `storage/` (git-ignored); file access is limited to the owning candidate and internal staff.
+  - **Scripts:** `npm run test:onboarding` (end-to-end smoke test against the local DB) and `npm run candidate:remove <id|email>`.
 - **Report engine + persona report library** (§49–§73) — 107 live reports computed from the operational database, organized by persona (Super Admin, Executive, Onboarder, Recruiter, Recruiting Manager, Account Manager, Candidate) and by the 18 §50.1 sections:
   - Operational & executive (§51, §67), Onboarder (§53), Recruiter (§54), Recruiting Manager (§55), Client (§56), Compliance (§57), Screening (§58), Payroll (§59), Billing (§60), Equipment (§61), Training (§62), Communications (§63), AI (§64), Integrations (§65), Audit (§66), Lifecycle (§68), plus the WC New Hire back-office report
   - Candidate reports (§52) are scoped to one candidate and expose only candidate-safe statuses

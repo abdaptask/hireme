@@ -4,13 +4,18 @@ import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { CANDIDATE } from "@/lib/portal-data";
+import { db } from "@/lib/db";
+import { portalCandidateId } from "@/lib/onboarding/session";
 
-export default function PortalLayout({
+export default async function PortalLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const initials = CANDIDATE.fullName
+  const id = await portalCandidateId();
+  const live = id ? await db.candidate.findUnique({ where: { id }, select: { firstName: true, lastName: true } }) : null;
+  const fullName = live ? `${live.firstName} ${live.lastName}` : CANDIDATE.fullName;
+  const initials = fullName
     .split(" ")
     .map((n) => n[0])
     .join("");

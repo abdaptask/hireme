@@ -226,6 +226,12 @@ model Candidate {
   skillFamily     String?
   skills          String[]
   skillConfidence Float?
+  /// Talent intelligence extracted from resumes (§20 document intelligence)
+  yearsExperience Int?
+  seniority       String?
+  currentTitle    String?
+  certifications  String[] @default([])
+  education       String[] @default([])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -241,6 +247,8 @@ model Candidate {
   exceptions     Exception[]
   payroll        PayrollReadiness?
   billing        BillingReadiness?
+  newHireRequest NewHireRequest?
+  resumes        Resume[]
 }
 
 model Consultant {
@@ -481,6 +489,8 @@ model Document {
   reviewedBy     String?
   reviewedAt     DateTime?
   uploadedAt     DateTime?
+  /// Non-sensitive values the candidate entered on a form (for editing a resubmission).
+  formData       Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -765,4 +775,117 @@ model AuditEvent {
   exception   Exception?   @relation(fields: [exceptionId], references: [id], onDelete: SetNull)
   integration Integration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
   client      Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+}
+
+// ─────────────────────────────────────────────────────────
+// NEW HIRE REQUEST (NHR) — the Recruiting Manager's intake form (§9 step 1)
+// ─────────────────────────────────────────────────────────
+
+model NewHireRequest {
+  id          String @id @default(cuid())
+  candidateId String @unique
+
+  // General details
+  accountExecutive  String?
+  recruiter         String?
+  recruitingManager String?
+
+  // Consultant details
+  status         String // Full-Time | Contract | Contract-to-Hire | Intern
+  subStatus      String? // Full Time hours | Part Time
+  middleName     String?
+  homePhone      String?
+  cellPhone      String?
+  emergencyName  String?
+  emergencyPhone String?
+  ssnLast4       String? // full SSN is never stored here — collected in the I-9 step
+  dateOfBirth    DateTime?
+  geid           String?
+  referred       Boolean  @default(false)
+  referrerName   String?
+  referrerAmount Float?
+  sourcedFrom    String?
+  sourcedOther   String?
+  workAuthorization String?
+  workAuthOther     String?
+  liveInState       String?
+
+  // Project details
+  clientName       String?
+  jobTitle         String?
+  jobId            String?
+  workCity         String?
+  workState        String?
+  directManager    String?
+  invoicingContact String?
+  timeTemplate     String?
+  startDate        DateTime?
+  termOfProject    String?
+
+  // Vendor details (C2C)
+  vendorName      String?
+  vendorContact   String?
+  vendorAddress   String?
+  vendorPhone     String?
+  vendorFederalId String?
+  vendorEmail     String?
+
+  // Pay details — contract
+  billRate           Float?
+  payRate            Float?
+  rateType           String?
+  taxTerms           String? // W-2 | 1099 | C2C
+  paymentTerms       String?
+  paymentTermsOther  String?
+
+  // Pay details — full time
+  salary    Float?
+  feePct    Float?
+  otherCost Float?
+
+  remarks      String?
+  specialTerms String?
+
+  /// Full NHR as submitted (drives portal pre-fill and deferred package assembly).
+  formData Json?
+
+  /// Bypassable validation exceptions (e.g. start date in the past) and their approval (§25).
+  exceptions      String[] @default([])
+  exceptionReason String?
+  approvalStatus  String   @default("not-required") // not-required | pending | approved | rejected
+  approvalBy      String?
+  approvalAt      DateTime?
+  approvalNote    String?
+
+  submittedBy String
+  submittedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────────────────
+// RESUMES — raw + formatted copies, with extracted talent profile
+// ─────────────────────────────────────────────────────────
+
+model Resume {
+  id          String   @id @default(cuid())
+  candidateId String
+  kind        String // raw | formatted
+  fileName    String
+  mimeType    String
+  fileSize    Int
+  uploadedBy  String
+  uploadedAt  DateTime @default(now())
+
+  /// Plain text extracted from the file (PDF / DOCX / TXT)
+  text     String?
+  /// Structured profile: skills, years, seniority, titles, certifications, education, contact
+  profile  Json?
+  parser   String? // builtin | claude-opus-5-5
+  parsedAt DateTime?
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId])
 }

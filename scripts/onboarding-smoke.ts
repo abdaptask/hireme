@@ -1,0 +1,277 @@
+/**
+ * End-to-end smoke test of the live onboarding loop against the local DB.
+ * Run: npx tsx --env-file=.env.local scripts/onboarding-smoke.ts
+ * Creates a throwaway candidate, walks every step, asserts, then deletes it.
+ */
+import { db } from "@/lib/db";
+import { emptyFormData } from "@/lib/onboarding-form";
+import { emptyNhr } from "@/lib/onboarding/nhr";
+import { templateFor } from "@/lib/onboarding/checklist";
+import * as svc from "@/lib/onboarding/service";
+import { removeCandidate } from "./remove-candidate";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { getResumeView, readResumeFile, storeResume, ResumeFileError } from "@/lib/talent/service";
+import { loadDataset } from "@/lib/report-engine/dataset";
+import { getReport } from "@/lib/report-engine/registry";
+
+const staff = { name: "Riya Kim", role: "onboarder" };
+
+function check(cond: unknown, msg: string) {
+  if (!cond) throw new Error(`FAIL: ${msg}`);
+  console.log(`  ✓ ${msg}`);
+}
+
+async function expectErr(p: Promise<unknown>, msg: string) {
+  try {
+    await p;
+  } catch (e) {
+    if (e instanceof svc.OnboardingError) {
+      console.log(`  ✓ ${msg} → "${e.message}"`);
+      return;
+    }
+    throw e;
+  }
+  throw new Error(`FAIL: expected an error: ${msg}`);
+}
+
+const cleanup = removeCandidate;
+
+async function main() {
+  // Remove leftovers from any earlier failed run.
+  for (const old of await db.candidate.findMany({ where: { email: { startsWith: "smoke." } }, select: { id: true } })) await cleanup(old.id);
+
+  const start = new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10);
+  const form = emptyFormData({
+    firstName: "Smoke",
+    lastName: "Tester",
+    candidateEmail: `smoke.${Date.now()}@example.com`,
+    mobile: "(555) 010-2000",
+    client: "Meridian Health",
+    jobTitle: "Clinical Data Analyst",
+    startDate: start,
+    employmentType: "employee",
+    payTerms: "w2",
+    workAuthorization: "h1b",
+    workStatus: "Remote",
+    workState: "TN",
+    liveInState: "TN",
+    city: "Nashville",
+    state: "TN",
+    billRate: "95",
+    payRate: "62",
+    assignedMembers: [
+      { role: "Recruiter", user: "Mia Thompson" },
+      { role: "Onboarder", user: "Riya Kim" },
+    ],
+  });
+
+  console.log("1. Validation");
+  await expectErr(svc.createOnboarding({ ...form, candidateEmail: "bad" }, { draft: false, actor: staff }), "rejects invalid email");
+  await expectErr(svc.createOnboarding({ ...form, client: "" }, { draft: false, actor: staff }), "requires client on submit");
+
+  console.log("2. Create + package assembly");
+  const { id, items } = await svc.createOnboarding(form, { draft: false, actor: staff });
+  const docs = await db.document.findMany({ where: { candidateId: id } });
+  const names = docs.map((d) => d.name);
+  check(items >= 10, `checklist generated (${items} items)`);
+  check(names.includes("Federal W-4") && names.includes("I-9 Section 1"), "W-2 forms included");
+  check(!names.includes("State Tax Withholding"), "no state tax form for TN (no income tax)");
+  check(names.includes("Work Authorization Document"), "work authorization required for H-1B");
+  check(names.includes("Professional License"), "Meridian client rule -> professional license");
+  check((await db.screening.count({ where: { candidateId: id } })) === 2, "background + drug screening ordered (Meridian rules)");
+  check((await db.training.findMany({ where: { candidateId: id } })).some((t) => /HIPAA/.test(t.title)), "HIPAA training assigned");
+  check((await db.equipment.findFirst({ where: { candidateId: id } }))?.assetType === "Laptop", "laptop for remote worker");
+  let c = await db.candidate.findUnique({ where: { id } });
+  check(c?.status === "OFFER_ACCEPTED" && c.progress < 30, `status OFFER_ACCEPTED, progress ${c?.progress}%`);
+  await expectErr(svc.createOnboarding(form, { draft: false, actor: staff }), "duplicate email blocked");
+
+  console.log("3. Candidate completes forms");
+  const w4 = docs.find((d) => d.name === "Federal W-4")!;
+  await expectErr(svc.submitForm(id, w4.id, {}, "Smoke Tester", true), "required fields enforced");
+  await expectErr(svc.submitForm(id, w4.id, { filingStatus: "Single or married filing separately" }, "Someone Else", true), "signature must match legal name");
+  for (const d of docs) {
+    const t = templateFor(d.name);
+    if (t.kind !== "form") continue;
+    const values = Object.fromEntries((t.fields ?? []).map((f) => [f.key, f.options?.[0] ?? (f.type === "date" ? "1990-01-01" : f.sensitive ? "123456789" : f.type === "number" ? "0" : "Test value")]));
+    await svc.submitForm(id, d.id, values, "smoke tester", true);
+  }
+  const file = await svc.readDocumentFile(docs.find((d) => d.name === "Direct Deposit Authorization")!.id);
+  const text = file?.bytes.toString() ?? "";
+  check(text.includes("6789") && !text.includes("123456789"), "sensitive fields stored masked");
+
+  console.log("4. Candidate uploads files");
+  const big = new Uint8Array(200_000).fill(7);
+  await expectErr(svc.uploadDocument(id, docs.find((d) => d.name === "Government Photo ID")!.id, { name: "id.exe", type: "application/x-msdownload", bytes: big }), "blocks unsafe file types");
+  for (const d of docs.filter((x) => ["Government Photo ID", "Work Authorization Document", "Professional License"].includes(x.name))) {
+    const r = await svc.uploadDocument(id, d.id, { name: `${d.name}.pdf`, type: "application/pdf", bytes: big }, "2030-01-01");
+    check(r.aiScore > 80, `${d.name} uploaded (AI score ${r.aiScore})`);
+  }
+  c = await db.candidate.findUnique({ where: { id } });
+  check(c?.status === "ONBOARDING", "status -> ONBOARDING after first submission");
+
+  console.log("5. Onboarder reviews");
+  const lic = docs.find((d) => d.name === "Professional License")!;
+  await expectErr(svc.reviewDocument(lic.id, "reject", "", staff), "rejection needs a reason");
+  await svc.reviewDocument(lic.id, "correction", "License image is cut off - include the expiry date.", staff);
+  check((await db.communication.count({ where: { candidateId: id, subject: { contains: "Action needed" } } })) === 1, "candidate notified of correction");
+  await svc.uploadDocument(id, lic.id, { name: "license-v2.pdf", type: "application/pdf", bytes: big }, "2029-06-30");
+  for (const d of await db.document.findMany({ where: { candidateId: id, status: "SUBMITTED" } })) await svc.reviewDocument(d.id, "approve", "", staff);
+  const pr = await db.payrollReadiness.findUnique({ where: { candidateId: id } });
+  check(pr?.status === "READY", "payroll gate READY once W-4 / I-9 / ID / direct deposit / benefits approved");
+
+  console.log("6. Screening, training, equipment, billing");
+  for (const s of await db.screening.findMany({ where: { candidateId: id } })) {
+    await expectErr(svc.recordScreening(s.id, "CLEAR", staff), "cannot clear before consent");
+    await svc.consentScreening(id, s.id, "Smoke Tester");
+    await svc.recordScreening(s.id, "CLEAR", staff);
+  }
+  for (const t of await db.training.findMany({ where: { candidateId: id } })) await svc.completeTraining(id, t.id, 92);
+  const eq = (await db.equipment.findFirst({ where: { candidateId: id } }))!;
+  for (let i = 0; i < 3; i++) await svc.advanceEquipment(eq.id, staff);
+  await svc.confirmEquipment(id, eq.id);
+  await expectErr(svc.confirmStart(id, staff), "cannot place before billing is ready");
+  await svc.completeBillingSetup(id, { poNumber: "PO-77812", costCenter: "CC-410", clientWorkerId: "MH-55120", vmsWorkerId: "BL-90311" }, staff);
+
+  console.log("7. Day 1");
+  c = await db.candidate.findUnique({ where: { id } });
+  check(c?.progress === 100 && c.stage === "Day 1 Prep", `progress 100%, stage ${c?.stage}`);
+  await svc.confirmStart(id, staff);
+  c = await db.candidate.findUnique({ where: { id } });
+  check(c?.status === "PLACED", "candidate PLACED");
+  const audits = await db.auditEvent.count({ where: { candidateId: id } });
+  check(audits > 25, `${audits} audit events recorded`);
+  const tl = await svc.getTimeline(id);
+  check(tl.length > 25, `timeline has ${tl.length} entries`);
+
+  await cleanup(id);
+
+  console.log("8. New Hire Request (full-time) — Recruiting Manager intake");
+  const rm = { name: "Victoria Chen", role: "recruiting-manager" };
+  const nhr = emptyNhr({
+    accountExecutive: "Priya Shah",
+    recruiter: "Mia Thompson",
+    recruitingManager: "Victoria Chen",
+    status: "Full-Time",
+    subStatus: "Full Time",
+    firstName: "Konstantin",
+    middleName: "G",
+    lastName: "Smoketest",
+    street: "720 North Dixie Hwy",
+    aptSuite: "Apt #405",
+    city: "Palm Beach",
+    state: "FL",
+    cellPhone: "561-900-6432",
+    ssnLast4: "6789",
+    dateOfBirth: "1966-04-28",
+    email: `smoke.nhr.${Date.now()}@example.com`,
+    sourcedFrom: "JobBoard - Monster",
+    workAuthorization: "Citizen",
+    liveInState: "FL",
+    client: "Apex Dynamics",
+    jobTitle: "Embedded Software Engineer",
+    jobId: "24-02630",
+    workCity: "Morrisville",
+    workState: "NC",
+    directManager: "Marcus Lee",
+    startDate: start,
+    termOfProject: "Permanent (Full-Time)",
+    salary: "85,000",
+    feePct: "",
+  });
+  await expectErr(svc.createFromNhr(nhr, rm), "NHR requires fee % for full-time");
+  const r = await svc.createFromNhr({ ...nhr, feePct: "20" }, rm);
+  const saved = await db.newHireRequest.findUnique({ where: { candidateId: r.id } });
+  check(saved?.salary === 85000 && saved.feePct === 20 && saved.ssnLast4 === "6789", "NHR saved (salary, fee, SSN last 4 only)");
+  check(saved?.sourcedFrom === "JobBoard - Monster" && saved.directManager === "Marcus Lee", "NHR keeps source and direct manager");
+  const a = await db.assignment.findFirst({ where: { candidateId: r.id } });
+  check(a?.remarks?.startsWith("Direct hire — 20% fee on $85,000 salary"), "FT fee recorded for Add / Drop (FT GP = fee / 960 h)");
+  const ftDocs = (await db.document.findMany({ where: { candidateId: r.id } })).map((d) => d.name);
+  check(ftDocs.includes("Offer Letter") && ftDocs.includes("State Tax Withholding") && !ftDocs.includes("Work Authorization Document"), "FT checklist: offer letter, NC state tax, no authorization upload for a citizen");
+  check(!!r.onboarder, `case auto-assigned to onboarder ${r.onboarder}`);
+
+  console.log("9. Pre-fill from NHR, confirmation, edit before review");
+  const i9 = (await db.document.findFirst({ where: { candidateId: r.id, name: "I-9 Section 1" } }))!;
+  const task = await svc.getPortalTask(r.id, i9.id);
+  check(task?.kind === "document" && task.prefill.citizenship === "U.S. citizen" && task.prefill.dob === "1966-04-28" && task.prefillSource === "nhr", "I-9 pre-filled from NHR (citizenship, DOB)");
+  await expectErr(svc.submitForm(r.id, i9.id, { citizenship: "U.S. citizen", ssn: "123456789", dob: "1966-04-28" }, "Konstantin Smoketest", false), "must confirm details before signing");
+  await svc.submitForm(r.id, i9.id, { citizenship: "U.S. citizen", ssn: "123456789", dob: "1966-04-28" }, "Konstantin Smoketest", true);
+  const again = await svc.getPortalTask(r.id, i9.id);
+  check(again?.kind === "document" && again.prefillSource === "previous" && !("ssn" in again.prefill), "editing shows previous answers (sensitive fields not kept)");
+  await svc.submitForm(r.id, i9.id, { citizenship: "U.S. citizen", ssn: "123456789", dob: "1966-04-29" }, "Konstantin Smoketest", true);
+  check((await db.auditEvent.count({ where: { documentId: i9.id, newValue: { startsWith: "RESUBMITTED" } } })) === 1, "edit before review recorded as RESUBMITTED");
+  await svc.reviewDocument(i9.id, "approve", "", staff);
+  await expectErr(svc.submitForm(r.id, i9.id, { citizenship: "U.S. citizen", ssn: "123456789", dob: "1966-04-28" }, "Konstantin Smoketest", true), "approved documents are locked");
+
+  console.log("10. Edit NHR after submission");
+  const prevOnboarder = r.onboarder;
+  const newOnboarder = prevOnboarder === "Riya Kim" ? "Carlos Rivera" : "Riya Kim";
+  const res = await svc.updateNhr(r.id, { accountExecutive: "Tom Whitaker", onboarder: newOnboarder }, rm);
+  check(res.changed === 2, "two NHR fields changed");
+  check((await db.newHireRequest.findUnique({ where: { candidateId: r.id } }))?.accountExecutive === "Tom Whitaker", "Account Executive updated");
+  check((await db.candidate.findUnique({ where: { id: r.id } }))?.onboarder === newOnboarder, `case reassigned to ${newOnboarder}`);
+  check((await db.auditEvent.count({ where: { candidateId: r.id, entityType: "NewHireRequest", action: "UPDATED", previousValue: "Priya Shah", newValue: "Tom Whitaker" } })) === 1, "AE change audited with previous and new value");
+  await cleanup(r.id);
+
+  console.log("11. Validation & Super Admin bypass");
+  const base = { ...nhr, feePct: "20", email: `smoke.nhr2.${Date.now()}@example.com` };
+  await expectErr(svc.createFromNhr({ ...base, dateOfBirth: "2012-01-01" }, rm), "under-18 DOB rejected");
+  await expectErr(svc.createFromNhr({ ...base, cellPhone: "555-12" }, rm), "bad phone rejected");
+  const past = new Date(Date.now() - 5 * 86_400_000).toISOString().slice(0, 10);
+  await expectErr(svc.createFromNhr({ ...base, startDate: past }, rm), "past start date blocked without a reason");
+  const held = await svc.createFromNhr({ ...base, startDate: past, exceptionReason: "Client emergency start; paperwork catching up." }, rm);
+  check(held.pendingApproval && held.items === 0, "past start date with reason → held, no checklist yet");
+  check((await db.candidate.findUnique({ where: { id: held.id } }))?.status === "NEW", "held candidate stays NEW");
+  await expectErr(svc.decideNhrException(held.id, "reject", "", { name: "Super Admin", role: "super-admin" }), "rejection needs a note");
+  const released = await svc.decideNhrException(held.id, "approve", "OK — client confirmed.", { name: "Super Admin", role: "super-admin" });
+  check(released.items > 5 && (await db.candidate.findUnique({ where: { id: held.id } }))?.status === "OFFER_ACCEPTED", `approved → checklist released (${released.items} items)`);
+  check((await db.newHireRequest.findUnique({ where: { candidateId: held.id } }))?.approvalBy === "Super Admin", "approval recorded with approver");
+  await cleanup(held.id);
+
+  console.log("12. Resumes & talent intelligence");
+  const rc = await svc.createFromNhr({ ...base, email: `smoke.resume.${Date.now()}@example.com` }, rm);
+  const resume = [
+    "Dana Q Smoketest",
+    "Raleigh, NC 27601 | dana.smoketest@example.com | 919-555-0142",
+    "PROFESSIONAL SUMMARY",
+    "Senior Data Engineer with 11 years of experience building pipelines on AWS with Python, SQL, Spark and Airflow.",
+    "EXPERIENCE",
+    "Senior Data Engineer | Northwind Analytics | Jan 2019 – Present",
+    "Built Spark and Airflow pipelines on AWS; modeled data in Snowflake with dbt; dashboards in Tableau.",
+    "Data Engineer | Contoso Retail | Jun 2014 – Dec 2018",
+    "Python and SQL ETL, Kafka streaming, Docker deployments.",
+    "EDUCATION",
+    "Master of Science in Computer Science, NC State University",
+    "CERTIFICATIONS",
+    "AWS Certified Solutions Architect",
+  ].join("\n");
+  const upload = (name: string, text: string) => ({ name, type: "text/plain", bytes: new TextEncoder().encode(text) });
+  try {
+    await storeResume(rc.id, "raw", upload("empty.txt", "too short"), rm);
+    throw new Error("FAIL: expected an unreadable-resume error");
+  } catch (e) {
+    check(e instanceof ResumeFileError, `unreadable resume rejected → "${(e as Error).message}"`);
+  }
+  await storeResume(rc.id, "formatted", upload("dana-formatted.txt", resume), rm);
+  const rawId = await storeResume(rc.id, "raw", upload("dana-raw.txt", resume), rm);
+  const prof = (await db.candidate.findUnique({ where: { id: rc.id } }))!;
+  check(prof.skillFamily === "Data & Analytics" && prof.skills.includes("Spark"), `profile: ${prof.skillFamily} · ${prof.skills.slice(0, 5).join(", ")}`);
+  check(prof.seniority === "Senior" && prof.yearsExperience === 11, `seniority ${prof.seniority}, ${prof.yearsExperience} yrs`);
+  const view = await getResumeView(rc.id);
+  check(view?.files.length === 2 && view.parser === "builtin" && !!view.profile?.warnings.some((w) => w.includes("email")), "both resumes on file; NHR email mismatch flagged");
+  check(!!(await readResumeFile(rawId)), "raw resume file stored and readable");
+  check((await db.auditEvent.count({ where: { candidateId: rc.id, entityType: "Resume" } })) >= 1, "analysis audited");
+  const ds = await loadDataset();
+  const talent = getReport("talent-expertise")!.load(ds, { params: { pool: "all" } });
+  check(talent.table.rows.some((r) => r.skill === "Spark") && talent.kpis[0].value as number > 100, `Talent Expertise report: ${talent.kpis[0].value} profiles, ${talent.table.rows.length} skills`);
+  await cleanup(rc.id);
+  check(!existsSync(path.join(process.cwd(), "storage", "resumes", rc.id)), "resume files removed with the candidate");
+  console.log("\nAll checks passed; smoke candidate removed.");
+}
+
+main()
+  .then(() => process.exit(0))
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });

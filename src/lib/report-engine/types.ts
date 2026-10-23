@@ -37,7 +37,8 @@ export type ReportSectionId =
   | "integration"
   | "audit"
   | "executive"
-  | "lifecycle";
+  | "lifecycle"
+  | "talent";
 
 export type Tone = "default" | "success" | "warning" | "danger" | "info" | "ai" | "neutral";
 
