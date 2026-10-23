@@ -53,7 +53,7 @@ import {
   type NhrErrors,
   type NhrForm,
 } from "@/lib/onboarding/nhr";
-import { createNhrAction } from "@/lib/actions/onboarding";
+import { NhrResumes, resumeAutofill, type ResumeFiles } from "./nhr-resumes";
 import type { NhrOptions } from "@/lib/onboarding/service";
 
 const DRAFT_KEY = "hireme.nhr.draft";
@@ -271,6 +271,14 @@ export function NhrFormView({
     pendingApproval: boolean;
   } | null>(null);
   const [today] = useState(() => new Date());
+  const [resumes, setResumes] = useState<ResumeFiles>({
+    raw: null,
+    formatted: null,
+  });
+  const [resumeErrors, setResumeErrors] = useState<{
+    raw?: string;
+    formatted?: string;
+  }>({});
   const [pending, start] = useTransition();
   const hasDraft = useSyncExternalStore(
     subscribeNoop,
@@ -345,9 +353,14 @@ export function NhrFormView({
     if (exceptions.length && !f.exceptionReason.trim())
       errs.exceptionReason =
         "Explain why this should proceed, or correct the dates";
+    const rErrs = {
+      raw: resumes.raw ? undefined : "Upload the raw resume",
+      formatted: resumes.formatted ? undefined : "Upload the formatted resume",
+    };
     setErrors(errs);
+    setResumeErrors(rErrs);
     setServerError(null);
-    if (Object.keys(errs).length) {
+    if (Object.keys(errs).length || rErrs.raw || rErrs.formatted) {
       requestAnimationFrame(() =>
         document
           .querySelector('[aria-invalid="true"]')
@@ -356,7 +369,21 @@ export function NhrFormView({
       return;
     }
     start(async () => {
-      const res = await createNhrAction(f);
+      const body = new FormData();
+      body.set("nhr", JSON.stringify(f));
+      body.set("rawResume", resumes.raw!);
+      body.set("formattedResume", resumes.formatted!);
+      let res:
+        | { ok: true; data: NonNullable<typeof created> }
+        | { ok: false; error: string };
+      try {
+        res = await (await fetch("/api/nhr", { method: "POST", body })).json();
+      } catch {
+        res = {
+          ok: false,
+          error: "Couldn't reach the server. Check your connection and try again.",
+        };
+      }
       if (!res.ok) setServerError(res.error);
       else {
         setCreated(res.data!);
@@ -428,6 +455,7 @@ export function NhrFormView({
             variant="ghost"
             onClick={() => {
               setCreated(null);
+              setResumes({ raw: null, formatted: null });
               setF(emptyNhr({ recruitingManager: defaultManager }));
             }}
           >
@@ -438,7 +466,9 @@ export function NhrFormView({
     );
   }
 
-  const errorCount = Object.values(errors).filter(Boolean).length;
+  const errorCount =
+    Object.values(errors).filter(Boolean).length +
+    Object.values(resumeErrors).filter(Boolean).length;
   const ft = isFullTime(f);
   const c2c = isC2C(f);
 
@@ -497,6 +527,23 @@ export function NhrFormView({
               `${errorCount} field${errorCount > 1 ? "s need" : " needs"} attention before this NHR can be submitted.`}
           </p>
         )}
+
+        <NhrResumes
+          files={resumes}
+          onFiles={(r) => {
+            setResumes(r);
+            setResumeErrors((e) => ({
+              raw: r.raw ? undefined : e.raw,
+              formatted: r.formatted ? undefined : e.formatted,
+            }));
+          }}
+          errors={resumeErrors}
+          onParsed={(p) => {
+            const { next, filled } = resumeAutofill(f, p);
+            if (filled.length) setF(next);
+            return filled;
+          }}
+        />
 
         <Section title="General Details">
           <Field

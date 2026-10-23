@@ -10,6 +10,7 @@ import { commercialReports } from "./reports/commercial";
 import { readinessReports } from "./reports/readiness";
 import { platformReports } from "./reports/platform";
 import { addDropReports } from "./reports/add-drop";
+import { talentReports } from "./reports/talent";
 
 export const REPORTS: ReportDef[] = [
   ...operationalReports,
@@ -18,6 +19,7 @@ export const REPORTS: ReportDef[] = [
   ...readinessReports,
   ...platformReports,
   ...addDropReports,
+  ...talentReports,
 ];
 
 const BY_SLUG = new Map(REPORTS.map((r) => [r.slug, r]));
@@ -35,6 +37,7 @@ export function reportMeta(r: ReportDef): ReportMeta {
 export const REPORT_SECTIONS: { id: ReportSectionId; label: string }[] = [
   { id: "operational", label: "Operational" },
   { id: "executive", label: "Executive" },
+  { id: "talent", label: "Talent Intelligence" },
   { id: "onboarder", label: "Onboarder" },
   { id: "recruiter", label: "Recruiter" },
   { id: "manager", label: "Recruiting Manager" },

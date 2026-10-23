@@ -58,6 +58,10 @@ import { CandidateAiPanel } from "@/components/ai/candidate-ai-panel";
 import { InitiateOnboardingButton } from "@/app/(app)/candidates/[id]/initiate-button";
 import { EditCandidateSheet } from "@/components/candidates/edit-candidate-sheet";
 import { cn } from "@/lib/utils";
+import { ResumePanel } from "@/components/360/resume-panel";
+import { getResumeView } from "@/lib/talent/service";
+import { claudeEnabled } from "@/lib/talent/claude";
+import { PARSER_LABEL } from "@/lib/talent/profile";
 import { ChecklistPanel } from "@/components/onboarding/checklist-panel";
 import {
   getChecklist,
@@ -283,6 +287,7 @@ export default async function CandidateRecordPage({
     !checklist &&
     (nhr.approval.status === "pending" || nhr.approval.status === "rejected");
   const nhrEdit = nhr && can(role, "editNhr") ? await nhrOptions() : null;
+  const resumes = dbCandidate ? await getResumeView(id) : null;
 
   // Build a CandidateDetail — from DB or mock
   let c: CandidateDetail | undefined;
@@ -324,14 +329,16 @@ export default async function CandidateRecordPage({
           ? "danger"
           : "warning") as "danger" | "warning",
       })),
-      extracted: mockDetail?.extracted ?? {
-        family: (summary.role.includes("Engineer") ||
-        summary.role.includes("Developer")
-          ? "Software & Cloud"
-          : "Software & Cloud") as import("@/lib/types").SkillFamily,
-        skills: dbCandidate.skills,
-        confidence: dbCandidate.skillConfidence ?? 0.8,
-      },
+      // A stored skills profile (resume analysis) wins over the mock role lookup.
+      extracted:
+        dbCandidate.skills.length || !mockDetail
+          ? {
+              family: (dbCandidate.skillFamily ??
+                "Unclassified") as import("@/lib/types").SkillFamily,
+              skills: dbCandidate.skills.slice(0, 8),
+              confidence: dbCandidate.skillConfidence ?? 0.8,
+            }
+          : mockDetail.extracted,
     };
   } else {
     c = getCandidate(id);
@@ -574,7 +581,10 @@ export default async function CandidateRecordPage({
                 <Sparkles className="text-ai size-4" /> Skills
               </h3>
               <p className="text-metadata mb-2">
-                AI-extracted · {c.extracted.family} ·{" "}
+                {resumes?.parser
+                  ? `From resume · ${PARSER_LABEL[resumes.parser]}`
+                  : "AI-extracted"}{" "}
+                · {c.extracted.family} ·{" "}
                 {Math.round(c.extracted.confidence * 100)}% confidence
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -612,6 +622,9 @@ export default async function CandidateRecordPage({
                   </TabsTrigger>
                 )}
                 {nhr && <TabsTrigger value="nhr">NHR</TabsTrigger>}
+                {resumes && (
+                  <TabsTrigger value="resume">Resume &amp; skills</TabsTrigger>
+                )}
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="timeline">Timeline</TabsTrigger>
                 <TabsTrigger value="tasks">Tasks</TabsTrigger>
@@ -670,6 +683,18 @@ export default async function CandidateRecordPage({
                       </dl>
                     </section>
                   ))}
+                </TabsContent>
+              )}
+
+              {/* Resumes and extracted skills profile (§20) */}
+              {resumes && (
+                <TabsContent value="resume" className="mt-4">
+                  <ResumePanel
+                    candidateId={id}
+                    view={resumes}
+                    canRerun={can(role, "initiate") || can(role, "review")}
+                    claudeReady={claudeEnabled()}
+                  />
                 </TabsContent>
               )}
 

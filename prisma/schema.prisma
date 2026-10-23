@@ -226,6 +226,12 @@ model Candidate {
   skillFamily     String?
   skills          String[]
   skillConfidence Float?
+  /// Talent intelligence extracted from resumes (§20 document intelligence)
+  yearsExperience Int?
+  seniority       String?
+  currentTitle    String?
+  certifications  String[] @default([])
+  education       String[] @default([])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -242,6 +248,7 @@ model Candidate {
   payroll        PayrollReadiness?
   billing        BillingReadiness?
   newHireRequest NewHireRequest?
+  resumes        Resume[]
 }
 
 model Consultant {
@@ -855,4 +862,30 @@ model NewHireRequest {
   updatedAt   DateTime @updatedAt
 
   candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────────────────
+// RESUMES — raw + formatted copies, with extracted talent profile
+// ─────────────────────────────────────────────────────────
+
+model Resume {
+  id          String   @id @default(cuid())
+  candidateId String
+  kind        String // raw | formatted
+  fileName    String
+  mimeType    String
+  fileSize    Int
+  uploadedBy  String
+  uploadedAt  DateTime @default(now())
+
+  /// Plain text extracted from the file (PDF / DOCX / TXT)
+  text     String?
+  /// Structured profile: skills, years, seniority, titles, certifications, education, contact
+  profile  Json?
+  parser   String? // builtin | claude-opus-5-5
+  parsedAt DateTime?
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId])
 }

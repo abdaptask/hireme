@@ -12,6 +12,13 @@ bump delivers a new vertical slice from the spec ([docs/ROADMAP.md](docs/ROADMAP
 ## [Unreleased]
 
 ### Added
+- **Resumes and talent intelligence.**
+  - The NHR now requires both the **raw** and the **formatted** resume (PDF, Word .docx or text, up to 10 MB). Both files are kept on the candidate record; access is limited to internal staff.
+  - The raw resume is analyzed as soon as it's attached: blank NHR fields (name, email, cell, city / state / zip) are pre-filled, and the specialty, skills, title, years of experience and seniority are shown before submitting.
+  - On save, the skills profile (specialty, skills, title, years, seniority, certifications, education) is stored on the candidate. Mismatches with the NHR (name, email) are flagged, and every analysis is audited.
+  - Analysis runs on a built-in extractor by default and switches to Claude (`claude-opus-5-5`, structured output) when `ANTHROPIC_API_KEY` is set, falling back to the built-in extractor on any failure. The extractor used and its confidence are always shown.
+  - New **Resume & skills** tab on the Candidate 360: view or download both resumes, see the extracted profile and warnings, and re-run the analysis.
+  - New **Talent Expertise** report (Talent Intelligence section): talent by specialty, deepest skills, seniority mix, certifications, profiles added over time, a skill inventory with bench depth, a specialty summary and a talent directory. It covers consultants and candidates, with drill-down.
 - **New Hire Request (NHR)** at `/onboarding/new`. This is the Recruiting Manager's intake form and replaces the Initiate Onboarding sheet.
   - Same sections as the ApTask NHR: General, Consultant, Project, Vendor, Pay (Contract / Full-Time), Remarks, and Special Terms.
   - Dropdowns wherever a list exists: staff, status, sub-status, sourced-from, work authorization, states, client, client contacts (filtered by client), time template, term, vendor, tax and payment terms. Free text is allowed where needed via "Other".

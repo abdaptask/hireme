@@ -47,7 +47,12 @@ export default function SpecialtyReportPage() {
         <span className="text-muted-foreground">
           Skill data is <span className="text-foreground font-medium">AI-extracted from résumés</span> at
           onboarding start and classified into families — {RESUMES_PARSED} résumés parsed in the current
-          pipeline. The report runs off that classification.
+          pipeline. The report runs off that classification. For the live talent pool built from NHR
+          resumes, open{" "}
+          <Link href="/reports/talent-expertise" className="text-foreground font-medium underline underline-offset-2">
+            Talent Expertise
+          </Link>
+          .
         </span>
       </div>
 

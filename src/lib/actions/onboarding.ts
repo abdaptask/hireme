@@ -8,7 +8,6 @@
 
 import { revalidatePath } from "next/cache";
 import type { OnboardingFormData } from "@/lib/onboarding-form";
-import type { NhrForm } from "@/lib/onboarding/nhr";
 import * as svc from "@/lib/onboarding/service";
 import { portalCandidateId, staffActor } from "@/lib/onboarding/session";
 import { can, type OnboardingPermission } from "@/lib/onboarding/permissions";
@@ -190,9 +189,7 @@ export async function confirmEquipmentAction(equipmentId: string) {
 
 // ── New Hire Request (Recruiting Manager intake) ─────────
 
-export async function createNhrAction(form: NhrForm) {
-  return run(async () => svc.createFromNhr(form, await requireStaff("initiate")), ["/candidates", "/onboarding", "/reports"]);
-}
+// NHR submission goes through POST /api/nhr (multipart, with the resumes).
 
 export async function decideNhrExceptionAction(candidateId: string, decision: "approve" | "reject", note: string) {
   return run(async () => svc.decideNhrException(candidateId, decision, note, await requireStaff("approve")), [`/candidates/${candidateId}`, "/candidates", "/approvals"]);

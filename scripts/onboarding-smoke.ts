@@ -9,6 +9,11 @@ import { emptyNhr } from "@/lib/onboarding/nhr";
 import { templateFor } from "@/lib/onboarding/checklist";
 import * as svc from "@/lib/onboarding/service";
 import { removeCandidate } from "./remove-candidate";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { getResumeView, readResumeFile, storeResume, ResumeFileError } from "@/lib/talent/service";
+import { loadDataset } from "@/lib/report-engine/dataset";
+import { getReport } from "@/lib/report-engine/registry";
 
 const staff = { name: "Riya Kim", role: "onboarder" };
 
@@ -222,6 +227,45 @@ async function main() {
   check(released.items > 5 && (await db.candidate.findUnique({ where: { id: held.id } }))?.status === "OFFER_ACCEPTED", `approved → checklist released (${released.items} items)`);
   check((await db.newHireRequest.findUnique({ where: { candidateId: held.id } }))?.approvalBy === "Super Admin", "approval recorded with approver");
   await cleanup(held.id);
+
+  console.log("12. Resumes & talent intelligence");
+  const rc = await svc.createFromNhr({ ...base, email: `smoke.resume.${Date.now()}@example.com` }, rm);
+  const resume = [
+    "Dana Q Smoketest",
+    "Raleigh, NC 27601 | dana.smoketest@example.com | 919-555-0142",
+    "PROFESSIONAL SUMMARY",
+    "Senior Data Engineer with 11 years of experience building pipelines on AWS with Python, SQL, Spark and Airflow.",
+    "EXPERIENCE",
+    "Senior Data Engineer | Northwind Analytics | Jan 2019 – Present",
+    "Built Spark and Airflow pipelines on AWS; modeled data in Snowflake with dbt; dashboards in Tableau.",
+    "Data Engineer | Contoso Retail | Jun 2014 – Dec 2018",
+    "Python and SQL ETL, Kafka streaming, Docker deployments.",
+    "EDUCATION",
+    "Master of Science in Computer Science, NC State University",
+    "CERTIFICATIONS",
+    "AWS Certified Solutions Architect",
+  ].join("\n");
+  const upload = (name: string, text: string) => ({ name, type: "text/plain", bytes: new TextEncoder().encode(text) });
+  try {
+    await storeResume(rc.id, "raw", upload("empty.txt", "too short"), rm);
+    throw new Error("FAIL: expected an unreadable-resume error");
+  } catch (e) {
+    check(e instanceof ResumeFileError, `unreadable resume rejected → "${(e as Error).message}"`);
+  }
+  await storeResume(rc.id, "formatted", upload("dana-formatted.txt", resume), rm);
+  const rawId = await storeResume(rc.id, "raw", upload("dana-raw.txt", resume), rm);
+  const prof = (await db.candidate.findUnique({ where: { id: rc.id } }))!;
+  check(prof.skillFamily === "Data & Analytics" && prof.skills.includes("Spark"), `profile: ${prof.skillFamily} · ${prof.skills.slice(0, 5).join(", ")}`);
+  check(prof.seniority === "Senior" && prof.yearsExperience === 11, `seniority ${prof.seniority}, ${prof.yearsExperience} yrs`);
+  const view = await getResumeView(rc.id);
+  check(view?.files.length === 2 && view.parser === "builtin" && !!view.profile?.warnings.some((w) => w.includes("email")), "both resumes on file; NHR email mismatch flagged");
+  check(!!(await readResumeFile(rawId)), "raw resume file stored and readable");
+  check((await db.auditEvent.count({ where: { candidateId: rc.id, entityType: "Resume" } })) >= 1, "analysis audited");
+  const ds = await loadDataset();
+  const talent = getReport("talent-expertise")!.load(ds, { params: { pool: "all" } });
+  check(talent.table.rows.some((r) => r.skill === "Spark") && talent.kpis[0].value as number > 100, `Talent Expertise report: ${talent.kpis[0].value} profiles, ${talent.table.rows.length} skills`);
+  await cleanup(rc.id);
+  check(!existsSync(path.join(process.cwd(), "storage", "resumes", rc.id)), "resume files removed with the candidate");
   console.log("\nAll checks passed; smoke candidate removed.");
 }
 

@@ -1975,6 +1975,7 @@ export async function deleteCandidateCascade(id: string): Promise<void> {
   await db.package.deleteMany({ where: { id: `pkg-${id}` } });
   await db.candidate.deleteMany({ where: { id } }); // readiness + NHR cascade
   await fs.rm(path.join(STORAGE_ROOT, id), { recursive: true, force: true });
+  await fs.rm(path.join(process.cwd(), "storage", "resumes", id), { recursive: true, force: true });
 }
 
 /** Dropdown data for the NHR form: staff, clients with contacts and rules, vendors. */
