@@ -44,3 +44,6 @@ next-env.d.ts
 
 # Claude Code agent worktrees (transient — never check in)
 .claude/worktrees/
+
+# local document uploads (onboarding portal)
+/storage/

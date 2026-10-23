@@ -11,8 +11,11 @@
  */
 
 import * as React from "react";
+import Link from "next/link";
 import {
+  AlertCircle,
   Check,
+  ExternalLink,
   ChevronRight,
   Plus,
   Sparkles,
@@ -41,15 +44,28 @@ import {
   ONBOARDING_SUB_STATUSES,
   WORK_STATUSES,
   GENDER_OPTIONS,
-  CLIENT_OPTIONS,
-  VENDOR_OPTIONS,
   ASSIGN_ROLES,
-  TEAM_MEMBERS,
   CURRENCY_OPTIONS,
   RATE_TYPE_OPTIONS,
   STEP_LABELS,
   TOTAL_STEPS,
 } from "@/lib/onboarding-form";
+import {
+  createOnboardingAction,
+  getOnboardingOptions,
+} from "@/lib/actions/onboarding";
+
+/** Live clients, vendors, and staff for the dropdowns (loaded when the sheet opens). */
+type Options = {
+  clients: string[];
+  vendors: string[];
+  team: { name: string; role: string }[];
+};
+const OptionsContext = React.createContext<Options>({
+  clients: [],
+  vendors: [],
+  team: [],
+});
 
 // ---------------------------------------------------------------------------
 // Shared field primitives
@@ -425,6 +441,7 @@ function Step2({
   data: OnboardingFormData;
   set: (k: keyof OnboardingFormData, v: unknown) => void;
 }) {
+  const { clients, vendors } = React.useContext(OptionsContext);
   return (
     <div className="grid grid-cols-2 gap-x-3 gap-y-3 sm:grid-cols-3">
       <SectionTitle>Project Details</SectionTitle>
@@ -436,7 +453,7 @@ function Step2({
           onChange={(e) => set("client", e.target.value)}
         >
           <option value="">-- Select client --</option>
-          {CLIENT_OPTIONS.map((c) => (
+          {clients.map((c) => (
             <option key={c} value={c}>
               {c}
             </option>
@@ -538,7 +555,7 @@ function Step2({
             onChange={(e) => set("vendorName", e.target.value)}
           >
             <option value="">-- Select vendor --</option>
-            {VENDOR_OPTIONS.map((v) => (
+            {vendors.map((v) => (
               <option key={v} value={v}>
                 {v}
               </option>
@@ -727,6 +744,8 @@ function Step4({
 }) {
   const [addRole, setAddRole] = React.useState(ASSIGN_ROLES[0]);
   const [addUser, setAddUser] = React.useState("");
+  const { team } = React.useContext(OptionsContext);
+  const people = team.filter((m) => m.role === addRole);
 
   const addMember = () => {
     if (!addUser) return;
@@ -773,8 +792,8 @@ function Step4({
               onChange={(e) => setAddUser(e.target.value)}
             >
               <option value="">Select User</option>
-              {TEAM_MEMBERS.map((m) => (
-                <option key={m.name} value={m.name}>
+              {(people.length ? people : team).map((m) => (
+                <option key={`${m.role}-${m.name}`} value={m.name}>
                   {m.name} ({m.role})
                 </option>
               ))}
@@ -869,10 +888,7 @@ function Step4({
       <Field label="Remarks" className="sm:col-span-3">
         <textarea
           rows={3}
-          className={cn(
-            inputCls,
-            "h-auto resize-y py-1.5 leading-relaxed",
-          )}
+          className={cn(inputCls, "h-auto resize-y py-1.5 leading-relaxed")}
           placeholder="Internal notes, special requirements…"
           value={data.remarks}
           onChange={(e) => set("remarks", e.target.value)}
@@ -931,7 +947,10 @@ function Step5({ data }: { data: OnboardingFormData }) {
         />
         <ReviewRow label="Email" value={data.candidateEmail} />
         <ReviewRow label="Mobile" value={data.mobile} />
-        <ReviewRow label="Location" value={[data.city, data.state].filter(Boolean).join(", ")} />
+        <ReviewRow
+          label="Location"
+          value={[data.city, data.state].filter(Boolean).join(", ")}
+        />
         <ReviewRow label="Employment" value={data.employmentType} />
         <ReviewRow label="Work Auth" value={data.workAuthorization} />
         <ReviewRow label="Pay Terms" value={data.payTerms} />
@@ -947,7 +966,9 @@ function Step5({ data }: { data: OnboardingFormData }) {
         <ReviewRow label="End Date" value={data.tentativeEnd} />
         <ReviewRow label="Status" value={data.status} />
         <ReviewRow label="Sub Status" value={data.subStatus} />
-        {data.vendorName && <ReviewRow label="Vendor" value={data.vendorName} />}
+        {data.vendorName && (
+          <ReviewRow label="Vendor" value={data.vendorName} />
+        )}
       </ReviewSection>
 
       <ReviewSection title="Rates & Location">
@@ -1017,6 +1038,24 @@ export function InitiateOnboardingSheet({ trigger, prefill }: Props) {
   const [open, setOpen] = React.useState(false);
   const [step, setStep] = React.useState(1);
   const [submitted, setSubmitted] = React.useState(false);
+  const [options, setOptions] = React.useState<Options | null>(null);
+  const [pending, setPending] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [created, setCreated] = React.useState<{
+    id: string;
+    items: number;
+    draft: boolean;
+  } | null>(null);
+
+  // Load live clients / vendors / staff the first time the sheet opens.
+  React.useEffect(() => {
+    if (!open || options) return;
+    let alive = true;
+    getOnboardingOptions().then((o) => alive && setOptions(o));
+    return () => {
+      alive = false;
+    };
+  }, [open, options]);
   const [data, setData] = React.useState<OnboardingFormData>(() =>
     emptyFormData(prefill),
   );
@@ -1033,19 +1072,28 @@ export function InitiateOnboardingSheet({ trigger, prefill }: Props) {
         setStep(1);
         setData(emptyFormData(prefill));
       }
+      setError(null);
     }
   }
 
-  function handleSubmit(draft = false) {
-    // In a real app: POST to /api/onboarding
-    console.info(draft ? "Saved as draft:" : "Submitted:", data);
+  async function handleSubmit(draft = false) {
+    setPending(true);
+    setError(null);
+    const res = await createOnboardingAction(data, draft);
+    setPending(false);
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    setCreated({ id: res.data!.id, items: res.data!.items, draft });
     setSubmitted(true);
-    setTimeout(() => {
-      setOpen(false);
-      setSubmitted(false);
-      setStep(1);
-      setData(emptyFormData(prefill));
-    }, 1200);
+  }
+
+  function startAnother() {
+    setSubmitted(false);
+    setCreated(null);
+    setStep(1);
+    setData(emptyFormData(prefill));
   }
 
   const defaultTrigger = (
@@ -1093,34 +1141,85 @@ export function InitiateOnboardingSheet({ trigger, prefill }: Props) {
         </SheetHeader>
 
         {/* ── Scrollable step content ─────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto px-5 py-4">
-          {submitted ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-12">
-              <span className="flex size-12 items-center justify-center rounded-full bg-success/15">
-                <Check className="size-6 text-success" />
-              </span>
-              <p className="text-sm font-medium">Onboarding record created!</p>
-              <p className="text-muted-foreground text-center text-xs">
-                The compliance package will be auto-generated based on client
-                rules and employment type.
-              </p>
-            </div>
-          ) : step === 1 ? (
-            <Step1 data={data} set={set} />
-          ) : step === 2 ? (
-            <Step2 data={data} set={set} />
-          ) : step === 3 ? (
-            <Step3 data={data} set={set} />
-          ) : step === 4 ? (
-            <Step4 data={data} set={set} />
-          ) : (
-            <Step5 data={data} />
-          )}
-        </div>
+        <OptionsContext.Provider
+          value={options ?? { clients: [], vendors: [], team: [] }}
+        >
+          <div className="flex-1 overflow-y-auto px-5 py-4">
+            {submitted ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-12">
+                <span className="flex size-12 items-center justify-center rounded-full bg-success/15">
+                  <Check className="size-6 text-success" />
+                </span>
+                <p className="text-sm font-medium">
+                  {created?.draft ? "Draft saved" : "Onboarding started!"}
+                </p>
+                <p className="text-muted-foreground max-w-sm text-center text-xs leading-relaxed">
+                  {created?.draft
+                    ? "The candidate record is saved. Submit the form when you're ready to generate their checklist."
+                    : `${data.firstName}'s checklist was generated from ${data.client || "client"} rules and employment type — ${created?.items ?? 0} items. A welcome message was recorded with their portal link.`}
+                </p>
+                {created && (
+                  <div className="mt-2 flex flex-wrap justify-center gap-2">
+                    <Button
+                      size="sm"
+                      nativeButton={false}
+                      render={
+                        <Link
+                          href={`/candidates/${created.id}`}
+                          onClick={() => setOpen(false)}
+                        />
+                      }
+                    >
+                      Open candidate record
+                    </Button>
+                    {!created.draft && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        nativeButton={false}
+                        render={
+                          <a
+                            href={`/portal/start?c=${created.id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          />
+                        }
+                      >
+                        <ExternalLink className="size-3.5" /> Open candidate
+                        portal
+                      </Button>
+                    )}
+                    <Button size="sm" variant="ghost" onClick={startAnother}>
+                      Start another
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : step === 1 ? (
+              <Step1 data={data} set={set} />
+            ) : step === 2 ? (
+              <Step2 data={data} set={set} />
+            ) : step === 3 ? (
+              <Step3 data={data} set={set} />
+            ) : step === 4 ? (
+              <Step4 data={data} set={set} />
+            ) : (
+              <Step5 data={data} />
+            )}
+          </div>
+        </OptionsContext.Provider>
 
         {/* ── Footer ──────────────────────────────────────────────────── */}
         {!submitted && (
           <div className="flex flex-col gap-2 border-t px-5 py-3">
+            {error && (
+              <p
+                role="alert"
+                className="bg-danger-muted text-danger-muted-foreground flex items-start gap-2 rounded-md px-3 py-2 text-xs"
+              >
+                <AlertCircle className="mt-0.5 size-3.5 shrink-0" /> {error}
+              </p>
+            )}
             <div className="flex items-center justify-between gap-2">
               {/* Block emails */}
               <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
@@ -1148,12 +1247,17 @@ export function InitiateOnboardingSheet({ trigger, prefill }: Props) {
                     <Button
                       variant="outline"
                       size="sm"
+                      disabled={pending}
                       onClick={() => handleSubmit(true)}
                     >
                       Save as Draft
                     </Button>
-                    <Button size="sm" onClick={() => handleSubmit(false)}>
-                      Submit
+                    <Button
+                      size="sm"
+                      disabled={pending}
+                      onClick={() => handleSubmit(false)}
+                    >
+                      {pending ? "Creating…" : "Submit"}
                     </Button>
                   </>
                 ) : (
@@ -1161,6 +1265,7 @@ export function InitiateOnboardingSheet({ trigger, prefill }: Props) {
                     <Button
                       variant="outline"
                       size="sm"
+                      disabled={pending}
                       onClick={() => handleSubmit(true)}
                     >
                       Save as Draft

@@ -25,6 +25,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PORTAL_TASKS } from "@/lib/portal-data";
+import { LiveTask } from "@/components/portal/live/live-task";
+import { getPortalTask } from "@/lib/onboarding/service";
+import { portalCandidateId } from "@/lib/onboarding/session";
 
 export async function generateMetadata({
   params,
@@ -526,6 +529,14 @@ export default async function TaskDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+
+  // Live candidate session: only their own checklist items resolve.
+  const candidateId = await portalCandidateId();
+  if (candidateId) {
+    const live = await getPortalTask(candidateId, id);
+    if (live) return <LiveTask task={live} />;
+  }
+
   const task = PORTAL_TASKS.find((t) => t.id === id);
   if (!task) notFound();
 

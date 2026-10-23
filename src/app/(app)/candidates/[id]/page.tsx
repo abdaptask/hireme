@@ -52,6 +52,88 @@ import { CandidateAiPanel } from "@/components/ai/candidate-ai-panel";
 import { InitiateOnboardingButton } from "@/app/(app)/candidates/[id]/initiate-button";
 import { EditCandidateSheet } from "@/components/candidates/edit-candidate-sheet";
 import { cn } from "@/lib/utils";
+import { ChecklistPanel } from "@/components/onboarding/checklist-panel";
+import {
+  getChecklist,
+  getTimeline,
+  type ChecklistRow,
+} from "@/lib/onboarding/service";
+
+export const dynamic = "force-dynamic"; // live onboarding record
+
+/** Readiness radar (§41.2) from the live checklist. */
+function liveReadiness(rows: ChecklistRow[]): ReadinessDimension[] {
+  const dim = (
+    label: string,
+    xs: ChecklistRow[],
+    note: string,
+  ): ReadinessDimension => {
+    const value = xs.length
+      ? Math.round((xs.filter((r) => r.done).length / xs.length) * 100)
+      : 100;
+    return {
+      label,
+      value,
+      tone: value === 100 ? "success" : value >= 50 ? "warning" : "danger",
+      note,
+    };
+  };
+  const by = (k: ChecklistRow["kind"]) => rows.filter((r) => r.kind === k);
+  const waiting = (xs: ChecklistRow[]) =>
+    `${xs.filter((r) => !r.done).length} open`;
+  return [
+    dim("Compliance", by("document"), waiting(by("document"))),
+    dim("Screening", by("screening"), waiting(by("screening"))),
+    dim("Payroll", by("payroll"), by("payroll")[0]?.detail ?? ""),
+    dim("Client / billing", by("billing"), by("billing")[0]?.detail ?? ""),
+    dim("IT provisioning", by("equipment"), waiting(by("equipment"))),
+    dim("Training", by("training"), waiting(by("training"))),
+  ];
+}
+
+/** Next Best Action (§41.1) from the live checklist. */
+function liveNextAction(
+  rows: ChecklistRow[],
+  placed: boolean,
+  firstName: string,
+) {
+  if (placed)
+    return {
+      title: `${firstName} is fully onboarded`,
+      detail: "Day 1 is confirmed. Ramp-up check-ins start next (§14.3).",
+      cta: "",
+    };
+  const mine = rows.find((r) => !r.done && r.actions.length);
+  if (mine)
+    return {
+      title: `${mine.actions.includes("approve") ? "Review" : mine.actions.includes("billing") ? "Complete" : "Update"}: ${mine.label}`,
+      detail: mine.detail ?? "",
+      cta: "",
+    };
+  const theirs = rows.filter((r) => !r.done && r.owner === "Candidate");
+  if (theirs.length)
+    return {
+      title: `Waiting on ${firstName}: ${theirs.length} item${theirs.length > 1 ? "s" : ""}`,
+      detail:
+        theirs
+          .slice(0, 3)
+          .map((r) => r.label)
+          .join(", ") + (theirs.length > 3 ? "…" : ""),
+      cta: "",
+    };
+  const other = rows.find((r) => !r.done);
+  if (other)
+    return {
+      title: `Waiting on ${other.owner.toLowerCase()}: ${other.label}`,
+      detail: other.detail ?? "",
+      cta: "",
+    };
+  return {
+    title: "Everything is complete — confirm the Day 1 start",
+    detail: "Compliance, payroll, and billing gates are all ready.",
+    cta: "",
+  };
+}
 
 // ─────────────────────────────────────────────────────────
 // Metadata
@@ -137,8 +219,12 @@ function InfoRow({
   return (
     <div className="flex items-center gap-2 py-1.5">
       <Icon className="text-muted-foreground size-4 shrink-0" />
-      <span className="text-muted-foreground w-24 shrink-0 text-xs">{label}</span>
-      <span className="min-w-0 flex-1 truncate text-sm font-medium">{value}</span>
+      <span className="text-muted-foreground w-24 shrink-0 text-xs">
+        {label}
+      </span>
+      <span className="min-w-0 flex-1 truncate text-sm font-medium">
+        {value}
+      </span>
     </div>
   );
 }
@@ -176,6 +262,10 @@ export default async function CandidateRecordPage({
 
   // ── Data resolution: DB-first, mock fallback ──────────
   const dbCandidate = await getDbCandidateFull(id).catch(() => null);
+  // Records created through Initiate Onboarding have a live checklist.
+  const checklist = dbCandidate ? await getChecklist(id) : null;
+  const liveTimeline = checklist ? await getTimeline(id) : null;
+  const placed = dbCandidate?.status === "PLACED";
 
   // Build a CandidateDetail — from DB or mock
   let c: CandidateDetail | undefined;
@@ -185,24 +275,32 @@ export default async function CandidateRecordPage({
     const mockDetail = getCandidate(id); // may return undefined for DB-only candidates
     c = {
       ...summary,
-      nextBestAction: mockDetail?.nextBestAction ?? {
-        title: "Review candidate progress",
-        detail: `${summary.name} is in ${summary.stage}. ${summary.startInDays > 0 ? `Start date is ${summary.startDateLabel}.` : ""}`,
-        cta: "Open tasks",
-      },
-      aiSummary: mockDetail?.aiSummary ??
+      nextBestAction: checklist
+        ? liveNextAction(checklist, placed, dbCandidate.firstName)
+        : (mockDetail?.nextBestAction ?? {
+            title: "Review candidate progress",
+            detail: `${summary.name} is in ${summary.stage}. ${summary.startInDays > 0 ? `Start date is ${summary.startDateLabel}.` : ""}`,
+            cta: "Open tasks",
+          }),
+      aiSummary:
+        mockDetail?.aiSummary ??
         `${summary.name.split(" ")[0]} is in ${summary.stage} for ${summary.client} (${summary.employmentType}), starting ${summary.startDateLabel}. Risk is ${summary.risk.replace("-", " ")}; ${summary.progress}% complete.`,
-      readiness: mockDetail?.readiness ?? [],
-      timeline: mockDetail?.timeline ?? [],
+      readiness: checklist
+        ? liveReadiness(checklist)
+        : (mockDetail?.readiness ?? []),
+      timeline: liveTimeline ?? mockDetail?.timeline ?? [],
       tasks: mockDetail?.tasks ?? [],
       documents: mockDetail?.documents ?? [],
       openExceptions: dbCandidate.exceptions.map((e) => ({
         id: e.id.slice(0, 8).toUpperCase(),
         title: e.title,
-        tone: (e.severity === "HIGH" || e.severity === "CRITICAL" ? "danger" : "warning") as "danger" | "warning",
+        tone: (e.severity === "HIGH" || e.severity === "CRITICAL"
+          ? "danger"
+          : "warning") as "danger" | "warning",
       })),
       extracted: mockDetail?.extracted ?? {
-        family: (summary.role.includes("Engineer") || summary.role.includes("Developer")
+        family: (summary.role.includes("Engineer") ||
+        summary.role.includes("Developer")
           ? "Software & Cloud"
           : "Software & Cloud") as import("@/lib/types").SkillFamily,
         skills: dbCandidate.skills,
@@ -221,7 +319,10 @@ export default async function CandidateRecordPage({
     (r) => r.candidateId === id,
   );
 
-  const initials = c.name.split(" ").map((n) => n[0]).join("");
+  const initials = c.name
+    .split(" ")
+    .map((n) => n[0])
+    .join("");
 
   // Open exceptions: prefer DB for DB candidates
   const openExceptions =
@@ -251,7 +352,10 @@ export default async function CandidateRecordPage({
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-workspace-title">{c.name}</h1>
                 {dbCandidate && (
-                  <Badge variant="secondary" className="text-[10px] text-success">
+                  <Badge
+                    variant="secondary"
+                    className="text-[10px] text-success"
+                  >
                     ● Live
                   </Badge>
                 )}
@@ -297,23 +401,48 @@ export default async function CandidateRecordPage({
                   }}
                 />
               )}
-              <InitiateOnboardingButton
-                prefill={{
-                  firstName: c.name.split(" ")[0],
-                  lastName: c.name.split(" ").slice(1).join(" "),
-                  candidateEmail: c.email,
-                  mobile: c.phone,
-                  client: c.client,
-                  jobTitle: c.role,
-                  employmentType:
-                    c.employmentType === "C2C" ? "contract" : "full-time",
-                }}
-              />
-              <Button size="sm">
-                {c.nextBestAction.cta}
-                <ArrowRight className="size-4" />
-              </Button>
-              <Button variant="outline" size="icon-sm" aria-label="More actions">
+              {checklist && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  nativeButton={false}
+                  render={
+                    <a
+                      href={`/portal/start?c=${id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    />
+                  }
+                >
+                  Open candidate portal
+                  <ArrowRight className="size-4" />
+                </Button>
+              )}
+              {!checklist && (
+                <InitiateOnboardingButton
+                  prefill={{
+                    firstName: c.name.split(" ")[0],
+                    lastName: c.name.split(" ").slice(1).join(" "),
+                    candidateEmail: c.email,
+                    mobile: c.phone,
+                    client: c.client,
+                    jobTitle: c.role,
+                    employmentType:
+                      c.employmentType === "C2C" ? "contract" : "full-time",
+                  }}
+                />
+              )}
+              {!checklist && (
+                <Button size="sm">
+                  {c.nextBestAction.cta}
+                  <ArrowRight className="size-4" />
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="icon-sm"
+                aria-label="More actions"
+              >
                 <MoreHorizontal className="size-4" />
               </Button>
             </div>
@@ -332,10 +461,12 @@ export default async function CandidateRecordPage({
                 {c.nextBestAction.detail}
               </p>
             </div>
-            <Button className="shrink-0">
-              {c.nextBestAction.cta}
-              <ArrowRight className="size-4" />
-            </Button>
+            {c.nextBestAction.cta && (
+              <Button className="shrink-0">
+                {c.nextBestAction.cta}
+                <ArrowRight className="size-4" />
+              </Button>
+            )}
           </div>
         </section>
 
@@ -357,7 +488,9 @@ export default async function CandidateRecordPage({
                 <div>
                   <p className="text-data-label">Onboarding</p>
                   <p className="text-sm font-medium">{c.stage}</p>
-                  <p className="text-metadata">Last activity {c.lastActivity}</p>
+                  <p className="text-metadata">
+                    Last activity {c.lastActivity}
+                  </p>
                 </div>
               </div>
             </div>
@@ -420,8 +553,16 @@ export default async function CandidateRecordPage({
 
           {/* Center workspace */}
           <div className="min-w-0">
-            <Tabs defaultValue="overview">
+            <Tabs defaultValue={checklist ? "checklist" : "overview"}>
               <TabsList className="flex-wrap">
+                {checklist && (
+                  <TabsTrigger value="checklist">
+                    Checklist
+                    <span className="bg-primary/20 ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums">
+                      {checklist.filter((r) => !r.done).length}
+                    </span>
+                  </TabsTrigger>
+                )}
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="timeline">Timeline</TabsTrigger>
                 <TabsTrigger value="tasks">Tasks</TabsTrigger>
@@ -441,8 +582,23 @@ export default async function CandidateRecordPage({
                 <TabsTrigger value="audit">Audit</TabsTrigger>
               </TabsList>
 
+              {/* Live onboarding checklist & review (§5.3) */}
+              {checklist && dbCandidate && (
+                <TabsContent value="checklist" className="mt-4">
+                  <ChecklistPanel
+                    candidateId={id}
+                    rows={checklist}
+                    progress={dbCandidate.progress}
+                    placed={placed}
+                  />
+                </TabsContent>
+              )}
+
               {/* Overview */}
-              <TabsContent value="overview" className="mt-4 flex flex-col gap-4">
+              <TabsContent
+                value="overview"
+                className="mt-4 flex flex-col gap-4"
+              >
                 <div className="bg-ai-muted/40 border-ai/20 rounded-xl border p-4">
                   <p className="text-ai-muted-foreground flex items-center gap-1.5 text-xs font-medium">
                     <Sparkles className="size-3.5" /> AI summary
@@ -501,7 +657,10 @@ export default async function CandidateRecordPage({
                 {dbCandidate ? (
                   <DbScreening screenings={dbCandidate.screenings} />
                 ) : (
-                  <Placeholder module="Background check & screening" version="v0.5" />
+                  <Placeholder
+                    module="Background check & screening"
+                    version="v0.5"
+                  />
                 )}
               </TabsContent>
 
@@ -528,7 +687,10 @@ export default async function CandidateRecordPage({
                 {dbCandidate ? (
                   <DbEquipment equipment={dbCandidate.equipment} />
                 ) : (
-                  <Placeholder module="Equipment & IT provisioning" version="v0.5" />
+                  <Placeholder
+                    module="Equipment & IT provisioning"
+                    version="v0.5"
+                  />
                 )}
               </TabsContent>
 
@@ -537,7 +699,10 @@ export default async function CandidateRecordPage({
                 {dbCandidate ? (
                   <DbTraining training={dbCandidate.training} />
                 ) : (
-                  <Placeholder module="Training & certifications" version="v0.6" />
+                  <Placeholder
+                    module="Training & certifications"
+                    version="v0.6"
+                  />
                 )}
               </TabsContent>
 
@@ -554,11 +719,34 @@ export default async function CandidateRecordPage({
 
           {/* Right context panel (§100.1) */}
           <aside className="flex flex-col gap-4">
-            {/* AI Summary & Recommendations (§105, §100.1) */}
-            <CandidateAiPanel
-              summary={aiSummary}
-              recommendations={candidateRecommendations}
-            />
+            {/* Live records: facts from the checklist; demo records: AI panel (§105, §100.1) */}
+            {checklist ? (
+              <div className="bg-card rounded-xl border p-4 shadow-xs">
+                <h3 className="text-card-heading mb-2">Status summary</h3>
+                <ul className="flex flex-col gap-1.5 text-sm">
+                  {(
+                    [
+                      ["Needs your review", checklist.filter((r) => !r.done && r.actions.length).length],
+                      ["Waiting on candidate", checklist.filter((r) => !r.done && !r.actions.length && r.owner === "Candidate").length],
+                      ["Waiting on vendors / IT / gates", checklist.filter((r) => !r.done && !r.actions.length && r.owner !== "Candidate").length],
+                      ["Complete", checklist.filter((r) => r.done).length],
+                    ] as const
+                  ).map(([label, n]) => (
+                    <li key={label} className="flex items-center justify-between">
+                      <span className="text-muted-foreground">{label}</span>
+                      <span className="font-semibold tabular-nums">{n}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-muted-foreground mt-3 border-t pt-3 text-xs leading-relaxed">
+                  Risk is {c.risk.replace("-", " ")}: {c.progress}% complete with {c.startInDays} day{c.startInDays === 1 ? "" : "s"} to start
+                  {checklist.some((r) => ["REJECTED", "CORRECTION_REQUIRED"].includes(r.status)) ? ", and a document was sent back for correction" : ""}. It updates
+                  automatically as items are completed (§33).
+                </p>
+              </div>
+            ) : (
+              <CandidateAiPanel summary={aiSummary} recommendations={candidateRecommendations} />
+            )}
 
             <div className="bg-card rounded-xl border p-4 shadow-xs">
               <h3 className="text-card-heading mb-2">Open exceptions</h3>
@@ -604,7 +792,9 @@ export default async function CandidateRecordPage({
                 </li>
                 <li className="flex items-center justify-between">
                   <span>Document SLA</span>
-                  <span className="text-warning-muted-foreground">in 4 hours</span>
+                  <span className="text-warning-muted-foreground">
+                    in 4 hours
+                  </span>
                 </li>
               </ul>
             </div>

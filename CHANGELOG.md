@@ -12,6 +12,14 @@ bump delivers a new vertical slice from the spec ([docs/ROADMAP.md](docs/ROADMAP
 ## [Unreleased]
 
 ### Added
+- **Live onboarding loop (first persisted end-to-end flow)**:
+  - **Initiate Onboarding saves.** It creates the candidate and assignment, using real clients, vendors, and staff from the DB.
+  - **The checklist builds itself** from employment type, work state (state tax form only where there's income tax), work authorization, and the client's own compliance rules. It covers documents, screenings, training, and equipment, and generates a package that explains why each item is included. It also creates payroll and billing readiness gates and records a welcome message.
+  - **Candidate portal** (`/portal/start?c=<id>`). Mobile-first: forms with typed e-signature (sensitive fields stored masked), file upload with camera capture and a quality pre-check, screening consent, a training course with quiz, and equipment receipt. The static demo portal stays for visitors without a session.
+  - **Onboarder review** on the Candidate 360 Checklist tab: approve, request correction, or reject with a reason (the candidate is notified); record screening results; move equipment through approve → ship → deliver; complete billing setup (PO, cost center, worker / VMS IDs); confirm Day 1 (blocked until compliance, payroll, and billing are ready).
+  - **Recalculated on every action:** progress, stage, the start-date risk score, and the readiness gates. Every step writes an audit event; the timeline, readiness radar, and next best action come from live data.
+  - **Local file storage** under `storage/` (git-ignored); file access is limited to the owning candidate and internal staff.
+  - **Scripts:** `npm run test:onboarding` (end-to-end smoke test against the local DB) and `npm run candidate:remove <id|email>`.
 - **Report engine + persona report library** (§49–§73) — 107 live reports computed from the operational database, organized by persona (Super Admin, Executive, Onboarder, Recruiter, Recruiting Manager, Account Manager, Candidate) and by the 18 §50.1 sections:
   - Operational & executive (§51, §67), Onboarder (§53), Recruiter (§54), Recruiting Manager (§55), Client (§56), Compliance (§57), Screening (§58), Payroll (§59), Billing (§60), Equipment (§61), Training (§62), Communications (§63), AI (§64), Integrations (§65), Audit (§66), Lifecycle (§68), plus the WC New Hire back-office report
   - Candidate reports (§52) are scoped to one candidate and expose only candidate-safe statuses
