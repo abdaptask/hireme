@@ -83,13 +83,13 @@ async function main() {
 
   console.log("3. Candidate completes forms");
   const w4 = docs.find((d) => d.name === "Federal W-4")!;
-  await expectErr(svc.submitForm(id, w4.id, {}, "Smoke Tester"), "required fields enforced");
-  await expectErr(svc.submitForm(id, w4.id, { filingStatus: "Single or married filing separately" }, "Someone Else"), "signature must match legal name");
+  await expectErr(svc.submitForm(id, w4.id, {}, "Smoke Tester", true), "required fields enforced");
+  await expectErr(svc.submitForm(id, w4.id, { filingStatus: "Single or married filing separately" }, "Someone Else", true), "signature must match legal name");
   for (const d of docs) {
     const t = templateFor(d.name);
     if (t.kind !== "form") continue;
     const values = Object.fromEntries((t.fields ?? []).map((f) => [f.key, f.options?.[0] ?? (f.type === "date" ? "1990-01-01" : f.sensitive ? "123456789" : f.type === "number" ? "0" : "Test value")]));
-    await svc.submitForm(id, d.id, values, "smoke tester");
+    await svc.submitForm(id, d.id, values, "smoke tester", true);
   }
   const file = await svc.readDocumentFile(docs.find((d) => d.name === "Direct Deposit Authorization")!.id);
   const text = file?.bytes.toString() ?? "";
@@ -184,7 +184,44 @@ async function main() {
   const ftDocs = (await db.document.findMany({ where: { candidateId: r.id } })).map((d) => d.name);
   check(ftDocs.includes("Offer Letter") && ftDocs.includes("State Tax Withholding") && !ftDocs.includes("Work Authorization Document"), "FT checklist: offer letter, NC state tax, no authorization upload for a citizen");
   check(!!r.onboarder, `case auto-assigned to onboarder ${r.onboarder}`);
+
+  console.log("9. Pre-fill from NHR, confirmation, edit before review");
+  const i9 = (await db.document.findFirst({ where: { candidateId: r.id, name: "I-9 Section 1" } }))!;
+  const task = await svc.getPortalTask(r.id, i9.id);
+  check(task?.kind === "document" && task.prefill.citizenship === "U.S. citizen" && task.prefill.dob === "1966-04-28" && task.prefillSource === "nhr", "I-9 pre-filled from NHR (citizenship, DOB)");
+  await expectErr(svc.submitForm(r.id, i9.id, { citizenship: "U.S. citizen", ssn: "123456789", dob: "1966-04-28" }, "Konstantin Smoketest", false), "must confirm details before signing");
+  await svc.submitForm(r.id, i9.id, { citizenship: "U.S. citizen", ssn: "123456789", dob: "1966-04-28" }, "Konstantin Smoketest", true);
+  const again = await svc.getPortalTask(r.id, i9.id);
+  check(again?.kind === "document" && again.prefillSource === "previous" && !("ssn" in again.prefill), "editing shows previous answers (sensitive fields not kept)");
+  await svc.submitForm(r.id, i9.id, { citizenship: "U.S. citizen", ssn: "123456789", dob: "1966-04-29" }, "Konstantin Smoketest", true);
+  check((await db.auditEvent.count({ where: { documentId: i9.id, newValue: { startsWith: "RESUBMITTED" } } })) === 1, "edit before review recorded as RESUBMITTED");
+  await svc.reviewDocument(i9.id, "approve", "", staff);
+  await expectErr(svc.submitForm(r.id, i9.id, { citizenship: "U.S. citizen", ssn: "123456789", dob: "1966-04-28" }, "Konstantin Smoketest", true), "approved documents are locked");
+
+  console.log("10. Edit NHR after submission");
+  const prevOnboarder = r.onboarder;
+  const newOnboarder = prevOnboarder === "Riya Kim" ? "Carlos Rivera" : "Riya Kim";
+  const res = await svc.updateNhr(r.id, { accountExecutive: "Tom Whitaker", onboarder: newOnboarder }, rm);
+  check(res.changed === 2, "two NHR fields changed");
+  check((await db.newHireRequest.findUnique({ where: { candidateId: r.id } }))?.accountExecutive === "Tom Whitaker", "Account Executive updated");
+  check((await db.candidate.findUnique({ where: { id: r.id } }))?.onboarder === newOnboarder, `case reassigned to ${newOnboarder}`);
+  check((await db.auditEvent.count({ where: { candidateId: r.id, entityType: "NewHireRequest", action: "UPDATED", previousValue: "Priya Shah", newValue: "Tom Whitaker" } })) === 1, "AE change audited with previous and new value");
   await cleanup(r.id);
+
+  console.log("11. Validation & Super Admin bypass");
+  const base = { ...nhr, feePct: "20", email: `smoke.nhr2.${Date.now()}@example.com` };
+  await expectErr(svc.createFromNhr({ ...base, dateOfBirth: "2012-01-01" }, rm), "under-18 DOB rejected");
+  await expectErr(svc.createFromNhr({ ...base, cellPhone: "555-12" }, rm), "bad phone rejected");
+  const past = new Date(Date.now() - 5 * 86_400_000).toISOString().slice(0, 10);
+  await expectErr(svc.createFromNhr({ ...base, startDate: past }, rm), "past start date blocked without a reason");
+  const held = await svc.createFromNhr({ ...base, startDate: past, exceptionReason: "Client emergency start; paperwork catching up." }, rm);
+  check(held.pendingApproval && held.items === 0, "past start date with reason → held, no checklist yet");
+  check((await db.candidate.findUnique({ where: { id: held.id } }))?.status === "NEW", "held candidate stays NEW");
+  await expectErr(svc.decideNhrException(held.id, "reject", "", { name: "Super Admin", role: "super-admin" }), "rejection needs a note");
+  const released = await svc.decideNhrException(held.id, "approve", "OK — client confirmed.", { name: "Super Admin", role: "super-admin" });
+  check(released.items > 5 && (await db.candidate.findUnique({ where: { id: held.id } }))?.status === "OFFER_ACCEPTED", `approved → checklist released (${released.items} items)`);
+  check((await db.newHireRequest.findUnique({ where: { candidateId: held.id } }))?.approvalBy === "Super Admin", "approval recorded with approver");
+  await cleanup(held.id);
   console.log("\nAll checks passed; smoke candidate removed.");
 }
 

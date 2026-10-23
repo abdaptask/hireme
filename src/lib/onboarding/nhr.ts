@@ -74,6 +74,8 @@ export type NhrForm = {
   remarks: string;
   specialTerms: string;
   blockEmails: boolean;
+  /** Why the request should proceed despite a bypassable exception (Super Admin approves). */
+  exceptionReason: string;
 };
 
 export function emptyNhr(prefill?: Partial<NhrForm>): NhrForm {
@@ -90,7 +92,7 @@ export function emptyNhr(prefill?: Partial<NhrForm>): NhrForm {
     vendorName: "", vendorContact: "", vendorAddress: "", vendorPhone: "", vendorFederalId: "", vendorEmail: "",
     billRate: "", payRate: "", rateType: "Hourly", taxTerms: "", paymentTerms: "", paymentTermsOther: "",
     salary: "", feePct: "", otherCost: "",
-    remarks: "", specialTerms: "", blockEmails: false,
+    remarks: "", specialTerms: "", blockEmails: false, exceptionReason: "",
     ...prefill,
   };
 }
@@ -190,6 +192,26 @@ export function validateNhr(f: NhrForm): NhrErrors {
   }
   if (f.startDate && f.endDate && f.endDate < f.startDate) e.endDate = "End date is before the start date";
 
+  // Format & sanity checks (hard errors — no bypass).
+  const digits = (v: string) => v.replace(/\D/g, "");
+  for (const [k, label] of [["cellPhone", "Cell #"], ["homePhone", "Home #"], ["emergencyPhone", "Emergency #"], ["vendorPhone", "Vendor contact #"]] as const) {
+    if (f[k] && ![10, 11].includes(digits(f[k]).length)) e[k] = `${label} must be a 10-digit phone number`;
+  }
+  if (f.zip && !/^\d{5}(-\d{4})?$/.test(f.zip.trim())) e.zip = "Zip must be 5 digits (or ZIP+4)";
+  if (f.dateOfBirth) {
+    const dob = new Date(`${f.dateOfBirth}T12:00:00`);
+    const age = (Date.now() - dob.getTime()) / (365.25 * 86_400_000);
+    if (dob.getTime() > Date.now()) e.dateOfBirth = "Date of birth can't be in the future";
+    else if (age < 18) e.dateOfBirth = "Candidate must be at least 18";
+    else if (age > 90) e.dateOfBirth = "Check the date of birth";
+  }
+  if (f.startDate) {
+    const days = (new Date(`${f.startDate}T12:00:00`).getTime() - Date.now()) / 86_400_000;
+    if (days > 365) e.startDate = "Start date is more than a year out — check the date";
+  }
+  if (f.vendorEmail && !/^\S+@\S+\.\S+$/.test(f.vendorEmail.trim())) e.vendorEmail = "Enter a valid email";
+  if (f.email && f.vendorEmail && f.email.trim().toLowerCase() === f.vendorEmail.trim().toLowerCase()) e.vendorEmail = "Vendor email can't be the candidate's email";
+
   if (isFullTime(f)) {
     if (money(f.salary) === null) e.salary = "Salary is required";
     const fee = num(f.feePct);
@@ -211,4 +233,21 @@ export function validateNhr(f: NhrForm): NhrErrors {
     if (f.vendorFederalId && !/^\d{2}-?\d{7}$/.test(f.vendorFederalId.trim())) e.vendorFederalId = "Format 12-3456789";
   }
   return e;
+}
+
+// ─────────────────────────────────────────────────────────
+// Bypassable exceptions — allowed only with a reason and Super Admin approval (§25)
+// ─────────────────────────────────────────────────────────
+
+export type NhrException = { code: "start-in-past" | "auth-expires-before-start"; message: string };
+
+const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+export function nhrExceptions(f: Pick<NhrForm, "startDate" | "authExpiry" | "workAuthorization">, today = new Date()): NhrException[] {
+  const out: NhrException[] = [];
+  if (f.startDate && f.startDate < ymd(today)) out.push({ code: "start-in-past", message: `Start date ${f.startDate} is in the past` });
+  if (f.authExpiry && f.startDate && !["Citizen", "Green Card"].includes(f.workAuthorization) && f.authExpiry <= f.startDate) {
+    out.push({ code: "auth-expires-before-start", message: `Work authorization expires ${f.authExpiry}, on or before the start date` });
+  }
+  return out;
 }

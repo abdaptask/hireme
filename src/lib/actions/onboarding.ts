@@ -40,6 +40,8 @@ const DENIED: Record<OnboardingPermission, string> = {
   initiate: "Only a Recruiting Manager can start onboarding.",
   review: "Only the Onboarder can review and move onboarding forward.",
   billing: "Only the Onboarder or Account Manager can complete billing setup.",
+  approve: "Only a Super Admin can approve NHR exceptions.",
+  editNhr: "Only the Recruiting Manager can edit a New Hire Request.",
 };
 
 /** Resolve the acting staff member and enforce segregation of duties (§25). */
@@ -150,9 +152,10 @@ export async function submitFormAction(
   docId: string,
   values: Record<string, string>,
   signature: string,
+  confirmed: boolean,
 ) {
   return run(
-    async () => svc.submitForm(await requirePortal(), docId, values, signature),
+    async () => svc.submitForm(await requirePortal(), docId, values, signature, confirmed),
     ["/portal"],
   );
 }
@@ -189,4 +192,12 @@ export async function confirmEquipmentAction(equipmentId: string) {
 
 export async function createNhrAction(form: NhrForm) {
   return run(async () => svc.createFromNhr(form, await requireStaff("initiate")), ["/candidates", "/onboarding", "/reports"]);
+}
+
+export async function decideNhrExceptionAction(candidateId: string, decision: "approve" | "reject", note: string) {
+  return run(async () => svc.decideNhrException(candidateId, decision, note, await requireStaff("approve")), [`/candidates/${candidateId}`, "/candidates", "/approvals"]);
+}
+
+export async function updateNhrAction(candidateId: string, patch: svc.NhrEdit) {
+  return run(async () => svc.updateNhr(candidateId, patch, await requireStaff("editNhr")), [`/candidates/${candidateId}`, "/candidates"]);
 }

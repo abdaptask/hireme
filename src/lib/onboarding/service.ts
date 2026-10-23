@@ -13,7 +13,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { db } from "@/lib/db";
 import { emptyFormData, type OnboardingFormData } from "@/lib/onboarding-form";
-import { isC2C, isFullTime, money, validateNhr, workAuthKey, type NhrForm } from "./nhr";
+import { isC2C, isFullTime, money, nhrExceptions, validateNhr, workAuthKey, type NhrException, type NhrForm } from "./nhr";
 import {
   STAGES,
   buildChecklist,
@@ -37,6 +37,8 @@ const DOC_NEEDS_CANDIDATE = new Set([
   "EXPIRED",
 ]);
 const EQUIP_DONE = new Set(["DELIVERED", "ENROLLED", "READY"]);
+/** Submitted but not yet reviewed — the candidate may still edit or replace it. */
+const DOC_EDITABLE = new Set(["SUBMITTED", "AI_REVIEW"]);
 
 // ─────────────────────────────────────────────────────────
 // Helpers
@@ -89,7 +91,7 @@ function mask(v: string): string {
 
 async function audit(data: {
   action:
-    "CREATED" | "UPDATED" | "APPROVED" | "REJECTED" | "AI_ACTION" | "ESCALATED";
+    "CREATED" | "UPDATED" | "APPROVED" | "REJECTED" | "AI_ACTION" | "ESCALATED" | "OVERRIDDEN";
   entityType: string;
   entityId?: string;
   entityLabel?: string;
@@ -213,7 +215,7 @@ export async function onboardingOptions() {
 
 export async function createOnboarding(
   data: OnboardingFormData,
-  opts: { draft: boolean; actor: Actor },
+  opts: { draft: boolean; actor: Actor; pendingApproval?: boolean },
 ): Promise<{ id: string; items: number }> {
   const first = data.firstName.trim();
   const last = data.lastName.trim();
@@ -276,10 +278,10 @@ export async function createOnboarding(
       lastName: last,
       email,
       phone: data.mobile || null,
-      status: opts.draft ? "NEW" : "OFFER_ACCEPTED",
+      status: opts.draft || opts.pendingApproval ? "NEW" : "OFFER_ACCEPTED",
       risk: "ON_TRACK",
       progress: 0,
-      stage: opts.draft ? "Profile Setup" : "Document Submission",
+      stage: opts.pendingApproval ? "Awaiting approval" : opts.draft ? "Profile Setup" : "Document Submission",
       employmentType,
       workLocation: workState
         ? `${workCity ? `${workCity}, ` : ""}${workState} (${workMode})`
@@ -289,7 +291,7 @@ export async function createOnboarding(
       recruiter: member("Recruiter"),
       onboarder,
       vendor: employmentType === "C2C" ? data.vendorName || null : null,
-      tags: ["new-hire", ...(opts.draft ? ["draft"] : [])],
+      tags: ["new-hire", ...(opts.draft ? ["draft"] : []), ...(opts.pendingApproval ? ["pending-approval"] : [])],
       notes: data.remarks || null,
       lastContact: new Date(),
       street:
@@ -329,11 +331,35 @@ export async function createOnboarding(
     entityId: id,
     entityLabel: `${first} ${last}`,
     actor: opts.actor,
-    newValue: opts.draft ? "Draft saved" : "Onboarding initiated",
+    newValue: opts.pendingApproval ? "NHR submitted — held for Super Admin approval" : opts.draft ? "Draft saved" : "Onboarding initiated",
     candidateId: id,
     clientId: client?.id,
   });
-  if (opts.draft) return { id, items: 0 };
+  if (opts.draft || opts.pendingApproval) return { id, items: 0 };
+
+  const items = await assemblePackage(id, data, opts.actor);
+  return { id, items };
+}
+
+/**
+ * Package assembly (§8.2): checklist items, package with explanations,
+ * readiness gates, welcome message. Runs at submission — or later, when a
+ * held NHR exception is approved by a Super Admin.
+ */
+export async function assemblePackage(id: string, data: OnboardingFormData, actor: Actor): Promise<number> {
+  const opts = { actor };
+  const c = await db.candidate.findUnique({ where: { id } });
+  if (!c) throw new OnboardingError("Candidate not found.");
+  const first = c.firstName;
+  const last = c.lastName;
+  const onboarder = c.onboarder;
+  const client = data.client ? await db.client.findUnique({ where: { name: data.client }, include: { rules: true } }) : null;
+  const employmentType = employmentFrom(data);
+  const workMode = workModeFrom(data.workStatus);
+  const workState = (data.workState || data.liveInState || data.state || "").toUpperCase().slice(0, 2) || null;
+  const startDate = parseDay(data.startDate);
+  const payRate = hourly(data.payRate, data.payRateType);
+  const billRate = hourly(data.billRate, data.billRateType);
 
   // ── Package assembly (§8.2) ────────────────────────────
   const plan = buildChecklist({
@@ -521,7 +547,7 @@ export async function createOnboarding(
   });
 
   await recompute(id);
-  return { id, items: plan.length };
+  return plan.length;
 }
 
 // ─────────────────────────────────────────────────────────
@@ -670,8 +696,8 @@ async function ownedDoc(candidateId: string, docId: string) {
   const d = await db.document.findUnique({ where: { id: docId } });
   if (!d || d.candidateId !== candidateId)
     throw new OnboardingError("That item isn't part of your checklist.");
-  if (!DOC_NEEDS_CANDIDATE.has(d.status))
-    throw new OnboardingError("This item has already been submitted.");
+  if (!DOC_NEEDS_CANDIDATE.has(d.status) && !DOC_EDITABLE.has(d.status))
+    throw new OnboardingError("This item was already approved — contact your onboarding specialist to change it.");
   return d;
 }
 
@@ -698,8 +724,10 @@ export async function submitForm(
   docId: string,
   values: Record<string, string>,
   signature: string,
+  confirmed = false,
 ): Promise<void> {
   const d = await ownedDoc(candidateId, docId);
+  if (!confirmed) throw new OnboardingError("Please confirm the details are correct before signing.");
   const t = templateFor(d.name);
   if (t.kind !== "form")
     throw new OnboardingError("This item needs a file upload.");
@@ -744,6 +772,8 @@ export async function submitForm(
       aiScore: 100,
       aiFlags: [],
       rejectedReason: null,
+      // Keep non-sensitive answers so the candidate can edit before review.
+      formData: Object.fromEntries((t.fields ?? []).filter((f) => !f.sensitive).map((f) => [f.key, values[f.key] ?? ""])),
     },
   });
   await audit({
@@ -753,7 +783,7 @@ export async function submitForm(
     entityLabel: d.name,
     actor,
     previousValue: d.status,
-    newValue: "SUBMITTED (e-signed)",
+    newValue: DOC_EDITABLE.has(d.status) ? "RESUBMITTED (edited before review)" : "SUBMITTED (e-signed)",
     candidateId,
     documentId: docId,
     sourceSystem: "candidate-portal",
@@ -827,7 +857,7 @@ export async function uploadDocument(
     entityLabel: d.name,
     actor,
     previousValue: d.status,
-    newValue: `SUBMITTED (${file.name}, ${Math.round(size / 1024)} KB)`,
+    newValue: `${DOC_EDITABLE.has(d.status) ? "REPLACED" : "SUBMITTED"} (${file.name}, ${Math.round(size / 1024)} KB)`,
     candidateId,
     documentId: docId,
     sourceSystem: "candidate-portal",
@@ -1656,16 +1686,24 @@ export async function getPortalTask(candidateId: string, taskId: string) {
   ]);
   const c = await db.candidate.findUnique({
     where: { id: candidateId },
-    select: { firstName: true, lastName: true },
+    select: { firstName: true, lastName: true, newHireRequest: { select: { formData: true } } },
   });
   const name = c ? `${c.firstName} ${c.lastName}` : "";
-  if (d?.candidateId === candidateId)
+  if (d?.candidateId === candidateId) {
+    const nhr = (c?.newHireRequest?.formData as unknown as Partial<NhrForm> | null) ?? null;
+    // Edit an earlier submission with its previous answers; otherwise pre-fill from the NHR.
+    const previous = (d.formData as Record<string, string> | null) ?? null;
+    const prefill = previous ?? portalPrefill(d.name, nhr, name);
     return {
       kind: "document" as const,
       name,
       doc: d,
       template: templateFor(d.name),
+      prefill,
+      prefillSource: previous ? ("previous" as const) : Object.values(prefill).some(Boolean) ? ("nhr" as const) : null,
+      expiryPrefill: d.name === "Work Authorization Document" ? (nhr?.authExpiry ?? "") : "",
     };
+  }
   if (s?.candidateId === candidateId)
     return { kind: "screening" as const, name, screening: s };
   if (t?.candidateId === candidateId)
@@ -1679,15 +1717,40 @@ export async function getPortalTask(candidateId: string, taskId: string) {
 // New Hire Request (NHR) intake — Recruiting Manager (§9 step 1)
 // ─────────────────────────────────────────────────────────
 
-export async function createFromNhr(f: NhrForm, actor: Actor): Promise<{ id: string; items: number; onboarder: string | null }> {
+export async function createFromNhr(f: NhrForm, actor: Actor): Promise<{ id: string; items: number; onboarder: string | null; pendingApproval: boolean }> {
   const errors = validateNhr(f);
   const first = Object.values(errors)[0];
   if (first) throw new OnboardingError(`${first}${Object.keys(errors).length > 1 ? ` (and ${Object.keys(errors).length - 1} more)` : ""}.`);
 
+  // Bypassable exceptions need a reason; the request is then held for Super Admin approval (§25).
+  const exceptions = nhrExceptions(f);
+  if (exceptions.length && !f.exceptionReason.trim()) {
+    throw new OnboardingError(`${exceptions.map((x) => x.message).join("; ")}. Correct it, or give a reason to request Super Admin approval.`);
+  }
+  const pendingApproval = exceptions.length > 0;
+
   const fullTime = isFullTime(f);
   const salary = money(f.salary);
   const feePct = Number(f.feePct.replace(/[%\s]/g, ""));
-  const fd = emptyFormData({
+  const fd = nhrToFormData(f);
+
+  const { id, items } = await createOnboarding(fd, { draft: false, actor, pendingApproval });
+  try {
+    await recordNhr(id, f, actor, fullTime, salary, feePct, exceptions);
+  } catch (e) {
+    // All-or-nothing: never leave a half-created onboarding case behind.
+    await deleteCandidateCascade(id);
+    throw e;
+  }
+  const c = await db.candidate.findUnique({ where: { id }, select: { onboarder: true } });
+  return { id, items, onboarder: c?.onboarder ?? null, pendingApproval };
+}
+
+/** Map an NHR onto the onboarding form model the package engine consumes. */
+function nhrToFormData(f: NhrForm): OnboardingFormData {
+  const fullTime = isFullTime(f);
+  const salary = money(f.salary);
+  return emptyFormData({
     employmentType: fullTime ? "full-time" : "employee",
     payTerms: fullTime ? "w2" : f.taxTerms === "C2C" ? "c2c" : f.taxTerms === "1099" ? "1099" : "w2",
     candidateEmail: f.email,
@@ -1727,19 +1790,9 @@ export async function createFromNhr(f: NhrForm, actor: Actor): Promise<{ id: str
     blockEmails: f.blockEmails,
   });
 
-  const { id, items } = await createOnboarding(fd, { draft: false, actor });
-  try {
-    await recordNhr(id, f, actor, fullTime, salary, feePct);
-  } catch (e) {
-    // All-or-nothing: never leave a half-created onboarding case behind.
-    await deleteCandidateCascade(id);
-    throw e;
-  }
-  const c = await db.candidate.findUnique({ where: { id }, select: { onboarder: true } });
-  return { id, items, onboarder: c?.onboarder ?? null };
 }
 
-async function recordNhr(id: string, f: NhrForm, actor: Actor, fullTime: boolean, salary: number | null, feePct: number): Promise<void> {
+async function recordNhr(id: string, f: NhrForm, actor: Actor, fullTime: boolean, salary: number | null, feePct: number, exceptions: NhrException[]): Promise<void> {
   // Full-time: record the placement fee where the Add / Drop report reads it (FT GP = fee ÷ 960 h).
   if (fullTime && salary) {
     await db.assignment.updateMany({
@@ -1800,9 +1853,112 @@ async function recordNhr(id: string, f: NhrForm, actor: Actor, fullTime: boolean
       remarks: f.remarks || null,
       specialTerms: f.specialTerms || null,
       submittedBy: actor.name,
+      formData: { ...f, exceptionReason: f.exceptionReason.trim() },
+      exceptions: exceptions.map((x) => x.message),
+      exceptionReason: exceptions.length ? f.exceptionReason.trim() : null,
+      approvalStatus: exceptions.length ? "pending" : "not-required",
     },
   });
   await audit({ action: "CREATED", entityType: "NewHireRequest", entityId: id, entityLabel: `NHR — ${f.firstName} ${f.lastName}`, actor, newValue: `${f.status} · ${f.client} · start ${f.startDate}`, candidateId: id });
+  if (exceptions.length) {
+    await audit({ action: "ESCALATED", entityType: "NewHireRequest", entityId: id, entityLabel: `NHR exception — ${f.firstName} ${f.lastName}`, actor, newValue: "Awaiting Super Admin approval", reason: `${exceptions.map((x) => x.message).join("; ")}. Reason: ${f.exceptionReason.trim()}`, candidateId: id });
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// NHR exception approval (Super Admin, §25 emergency override)
+// ─────────────────────────────────────────────────────────
+
+export async function decideNhrException(candidateId: string, decision: "approve" | "reject", note: string, actor: Actor): Promise<{ items: number }> {
+  const nhr = await db.newHireRequest.findUnique({ where: { candidateId } });
+  if (!nhr || nhr.approvalStatus !== "pending") throw new OnboardingError("There's no pending approval for this new hire request.");
+  if (decision === "reject" && !note.trim()) throw new OnboardingError("Add a note so the Recruiting Manager knows why it was rejected.");
+  const c = await db.candidate.findUnique({ where: { id: candidateId } });
+  if (!c) throw new OnboardingError("Candidate not found.");
+
+  await db.newHireRequest.update({ where: { candidateId }, data: { approvalStatus: decision === "approve" ? "approved" : "rejected", approvalBy: actor.name, approvalAt: new Date(), approvalNote: note.trim() || null } });
+  await audit({ action: decision === "approve" ? "OVERRIDDEN" : "REJECTED", entityType: "NewHireRequest", entityId: candidateId, entityLabel: `NHR exception — ${c.firstName} ${c.lastName}`, actor, previousValue: "pending", newValue: decision === "approve" ? "Exception approved — onboarding released" : "Exception rejected", reason: [nhr.exceptions.join("; "), note.trim()].filter(Boolean).join(" — "), candidateId });
+
+  if (decision === "reject") {
+    await db.candidate.update({ where: { id: candidateId }, data: { status: "ARCHIVED", stage: "NHR rejected", tags: c.tags.filter((t) => t !== "pending-approval").concat("nhr-rejected") } });
+    return { items: 0 };
+  }
+  await db.candidate.update({ where: { id: candidateId }, data: { status: "OFFER_ACCEPTED", stage: "Document Submission", tags: c.tags.filter((t) => t !== "pending-approval") } });
+  const form = nhr.formData as unknown as NhrForm | null;
+  if (!form) throw new OnboardingError("The original NHR details are missing — resubmit the request.");
+  const items = await assemblePackage(candidateId, nhrToFormData(form), actor);
+  await recompute(candidateId);
+  return { items };
+}
+
+// ─────────────────────────────────────────────────────────
+// Edit an NHR after submission (Recruiting Manager / Super Admin)
+// ─────────────────────────────────────────────────────────
+
+export const NHR_EDITABLE = ["accountExecutive", "recruiter", "recruitingManager", "onboarder", "jobTitle", "jobId", "directManager", "invoicingContact", "timeTemplate", "endDate", "remarks", "specialTerms"] as const;
+export type NhrEdit = Partial<Record<(typeof NHR_EDITABLE)[number], string>>;
+
+const EDIT_LABEL: Record<(typeof NHR_EDITABLE)[number], string> = {
+  accountExecutive: "Account Executive", recruiter: "Recruiter", recruitingManager: "Recruiting Manager", onboarder: "Onboarder",
+  jobTitle: "Job name", jobId: "Job Id", directManager: "Direct Manager / HR Contact", invoicingContact: "Invoicing Contact",
+  timeTemplate: "Time Template", endDate: "Est. end date", remarks: "Remarks", specialTerms: "Special Terms / Exceptions",
+};
+
+export async function updateNhr(candidateId: string, patch: NhrEdit, actor: Actor): Promise<{ changed: number }> {
+  const [nhr, c, a] = await Promise.all([
+    db.newHireRequest.findUnique({ where: { candidateId } }),
+    db.candidate.findUnique({ where: { id: candidateId } }),
+    db.assignment.findFirst({ where: { candidateId }, orderBy: { createdAt: "desc" } }),
+  ]);
+  if (!nhr || !c) throw new OnboardingError("This candidate has no New Hire Request to edit.");
+  const form = { ...((nhr.formData as unknown as Partial<NhrForm>) ?? {}) };
+  const current: Record<string, string> = {
+    accountExecutive: nhr.accountExecutive ?? "", recruiter: nhr.recruiter ?? c.recruiter ?? "", recruitingManager: nhr.recruitingManager ?? "",
+    onboarder: c.onboarder ?? "", jobTitle: nhr.jobTitle ?? "", jobId: nhr.jobId ?? "", directManager: nhr.directManager ?? "",
+    invoicingContact: nhr.invoicingContact ?? "", timeTemplate: nhr.timeTemplate ?? "", endDate: form.endDate ?? "", remarks: nhr.remarks ?? "", specialTerms: nhr.specialTerms ?? "",
+  };
+  const changes = NHR_EDITABLE.filter((k) => patch[k] !== undefined && (patch[k] ?? "").trim() !== current[k]);
+  if (!changes.length) return { changed: 0 };
+  if (changes.includes("endDate") && patch.endDate && c.startDate && new Date(`${patch.endDate}T12:00:00`) < c.startDate) throw new OnboardingError("End date can't be before the start date.");
+  for (const k of ["accountExecutive", "recruiter", "recruitingManager", "onboarder"] as const) {
+    if (changes.includes(k) && !(patch[k] ?? "").trim()) throw new OnboardingError(`${EDIT_LABEL[k]} can't be empty.`);
+  }
+
+  const v = (k: (typeof NHR_EDITABLE)[number]) => ((patch[k] ?? "").trim() || null);
+  const nhrData: Record<string, unknown> = {};
+  for (const k of changes) {
+    if (k === "onboarder" || k === "endDate") continue;
+    nhrData[k] = v(k);
+    (form as Record<string, unknown>)[k] = patch[k];
+  }
+  if (changes.includes("endDate")) form.endDate = patch.endDate ?? "";
+  await db.newHireRequest.update({ where: { candidateId }, data: { ...nhrData, formData: form } });
+  if (changes.includes("recruiter") || changes.includes("onboarder")) {
+    await db.candidate.update({ where: { id: candidateId }, data: { ...(changes.includes("recruiter") ? { recruiter: v("recruiter") } : {}), ...(changes.includes("onboarder") ? { onboarder: v("onboarder") } : {}) } });
+  }
+  if (a && (changes.includes("jobTitle") || changes.includes("jobId") || changes.includes("endDate"))) {
+    await db.assignment.update({ where: { id: a.id }, data: { ...(changes.includes("jobTitle") ? { jobTitle: v("jobTitle") } : {}), ...(changes.includes("jobId") ? { jobId: v("jobId") } : {}), ...(changes.includes("endDate") ? { endDate: v("endDate") ? new Date(`${patch.endDate}T12:00:00`) : null } : {}) } });
+  }
+  for (const k of changes) {
+    await audit({ action: "UPDATED", entityType: "NewHireRequest", entityId: candidateId, entityLabel: `${EDIT_LABEL[k]} — ${c.firstName} ${c.lastName}`, actor, previousValue: current[k] || "—", newValue: (patch[k] ?? "").trim() || "—", candidateId });
+  }
+  return { changed: changes.length };
+}
+
+/** NHR values the candidate's forms are pre-filled from (they confirm before signing). */
+export function portalPrefill(docName: string, nhr: Partial<NhrForm> | null, fullName: string): Record<string, string> {
+  if (!nhr) return {};
+  const citizenship: Record<string, string> = { Citizen: "U.S. citizen", "Green Card": "Lawful permanent resident" };
+  switch (docName) {
+    case "I-9 Section 1":
+      return { citizenship: nhr.workAuthorization ? citizenship[nhr.workAuthorization] ?? "Noncitizen authorized to work" : "", dob: nhr.dateOfBirth ?? "" };
+    case "W-9 (Taxpayer ID)":
+      return { legalName: [nhr.firstName, nhr.middleName, nhr.lastName].filter(Boolean).join(" ") || fullName, classification: "Individual / sole proprietor" };
+    case "Vendor Master Services Agreement":
+      return { vendorSignatory: nhr.vendorContact ?? "" };
+    default:
+      return {};
+  }
 }
 
 /** Remove a candidate and every row that references it (several relations are SetNull, not cascade). */
@@ -1833,6 +1989,7 @@ export async function nhrOptions() {
     accountExecutives: uniq([...clients.map((c) => c.accountManager), ...consultants.map((c) => c.accountManager)]),
     recruiters: uniq(cands.map((c) => c.recruiter)),
     recruitingManagers: ["Robert Alvarez", "Victoria Chen"],
+    onboarders: uniq((await db.candidate.findMany({ select: { onboarder: true }, distinct: ["onboarder"] })).map((c) => c.onboarder)),
     vendors: uniq([...cands.map((c) => c.vendor), ...consultants.map((c) => c.vendor)]),
     clients: clients.map((c) => ({
       name: c.name,
@@ -1845,3 +2002,47 @@ export async function nhrOptions() {
 }
 
 export type NhrOptions = Awaited<ReturnType<typeof nhrOptions>>;
+
+/** NHR as shown on the Candidate 360: details, approval state, and editable values. */
+export async function getNhrView(candidateId: string) {
+  const nhr = await db.newHireRequest.findUnique({ where: { candidateId }, include: { candidate: { select: { onboarder: true, recruiter: true } } } });
+  if (!nhr) return null;
+  const form = (nhr.formData as unknown as Partial<NhrForm> | null) ?? {};
+  const client = nhr.clientName ? await db.client.findUnique({ where: { name: nhr.clientName }, include: { contacts: true } }) : null;
+  const fmt = (d: Date | null) => (d ? d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—");
+  const usd = (n: number | null) => (n === null ? "—" : `$${n.toLocaleString("en-US", { maximumFractionDigits: 2 })}`);
+  return {
+    approval: {
+      status: nhr.approvalStatus as "pending" | "approved" | "rejected" | "not-required",
+      exceptions: nhr.exceptions,
+      reason: nhr.exceptionReason,
+      submittedBy: nhr.submittedBy,
+      decidedBy: nhr.approvalBy,
+      decidedAt: nhr.approvalAt ? nhr.approvalAt.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : null,
+      note: nhr.approvalNote,
+    },
+    contacts: (client?.contacts ?? []).map((c) => ({ name: c.name, title: c.title })),
+    values: {
+      accountExecutive: nhr.accountExecutive ?? "",
+      recruiter: nhr.recruiter ?? nhr.candidate.recruiter ?? "",
+      recruitingManager: nhr.recruitingManager ?? "",
+      onboarder: nhr.candidate.onboarder ?? "",
+      jobTitle: nhr.jobTitle ?? "",
+      jobId: nhr.jobId ?? "",
+      directManager: nhr.directManager ?? "",
+      invoicingContact: nhr.invoicingContact ?? "",
+      timeTemplate: nhr.timeTemplate ?? "",
+      endDate: form.endDate ?? "",
+      remarks: nhr.remarks ?? "",
+      specialTerms: nhr.specialTerms ?? "",
+    },
+    sections: [
+      { title: "General Details", rows: [["Account Executive", nhr.accountExecutive], ["Recruiter", nhr.recruiter], ["Recruiting Manager", nhr.recruitingManager], ["Submitted by", `${nhr.submittedBy} · ${fmt(nhr.submittedAt)}`]] },
+      { title: "Consultant Details", rows: [["Status", [nhr.status, nhr.subStatus].filter(Boolean).join(" · ")], ["Middle name", nhr.middleName], ["Cell #", nhr.cellPhone], ["Home #", nhr.homePhone], ["Emergency", [nhr.emergencyName, nhr.emergencyPhone].filter(Boolean).join(" · ")], ["SSN", nhr.ssnLast4 ? `•••-••-${nhr.ssnLast4}` : null], ["DOB", fmt(nhr.dateOfBirth)], ["GEID", nhr.geid], ["Referred", nhr.referred ? `${nhr.referrerName ?? ""}${nhr.referrerAmount ? ` · ${usd(nhr.referrerAmount)}` : ""}` : "No"], ["Sourced from", nhr.sourcedOther ?? nhr.sourcedFrom], ["Work authorization", nhr.workAuthOther ?? nhr.workAuthorization], ["Live in state", nhr.liveInState]] },
+      { title: "Project Details", rows: [["Client", nhr.clientName], ["Job", [nhr.jobTitle, nhr.jobId].filter(Boolean).join(" / ")], ["Work location", [nhr.workCity, nhr.workState].filter(Boolean).join(", ")], ["Direct manager / HR", nhr.directManager], ["Invoicing contact", nhr.invoicingContact], ["Time template", nhr.timeTemplate], ["Start date", fmt(nhr.startDate)], ["Term of project", nhr.termOfProject]] },
+      { title: "Vendor Details", rows: nhr.vendorName ? [["Vendor", nhr.vendorName], ["Contact", nhr.vendorContact], ["Federal ID", nhr.vendorFederalId], ["Phone", nhr.vendorPhone], ["Email", nhr.vendorEmail], ["Address", nhr.vendorAddress]] : [["Vendor", "NA"]] },
+      { title: nhr.salary !== null ? "Pay Details — Full Time" : "Pay Details — Contract", rows: nhr.salary !== null ? [["Salary", usd(nhr.salary)], ["Fee %", nhr.feePct !== null ? `${nhr.feePct}%` : null], ["Other cost", usd(nhr.otherCost)]] : [["Bill rate", `${usd(nhr.billRate)} ${nhr.rateType ?? ""}`], ["Pay rate", `${usd(nhr.payRate)} ${nhr.rateType ?? ""}`], ["Payment terms", [nhr.taxTerms, nhr.paymentTerms].filter(Boolean).join(" · ")]] },
+      { title: "Remarks & Special Terms", rows: [["Remarks", nhr.remarks], ["Special terms / exceptions", nhr.specialTerms]] },
+    ].map((s) => ({ title: s.title, rows: s.rows.map(([k, v]) => ({ label: k as string, value: (v as string | null) || "—" })) })),
+  };
+}

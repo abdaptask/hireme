@@ -482,6 +482,8 @@ model Document {
   reviewedBy     String?
   reviewedAt     DateTime?
   uploadedAt     DateTime?
+  /// Non-sensitive values the candidate entered on a form (for editing a resubmission).
+  formData       Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -836,6 +838,17 @@ model NewHireRequest {
 
   remarks      String?
   specialTerms String?
+
+  /// Full NHR as submitted (drives portal pre-fill and deferred package assembly).
+  formData Json?
+
+  /// Bypassable validation exceptions (e.g. start date in the past) and their approval (§25).
+  exceptions      String[] @default([])
+  exceptionReason String?
+  approvalStatus  String   @default("not-required") // not-required | pending | approved | rejected
+  approvalBy      String?
+  approvalAt      DateTime?
+  approvalNote    String?
 
   submittedBy String
   submittedAt DateTime @default(now())

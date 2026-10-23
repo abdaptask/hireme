@@ -1,5 +1,9 @@
 import Link from "next/link";
 import { viewerRole } from "@/lib/onboarding/session";
+import {
+  NhrApprovalBanner,
+  NhrEditSheet,
+} from "@/components/onboarding/nhr-panel";
 import { can } from "@/lib/onboarding/permissions";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -57,7 +61,9 @@ import { cn } from "@/lib/utils";
 import { ChecklistPanel } from "@/components/onboarding/checklist-panel";
 import {
   getChecklist,
+  getNhrView,
   getTimeline,
+  nhrOptions,
   type ChecklistRow,
 } from "@/lib/onboarding/service";
 
@@ -269,6 +275,14 @@ export default async function CandidateRecordPage({
   const liveTimeline = checklist ? await getTimeline(id) : null;
   const placed = dbCandidate?.status === "PLACED";
   const role = await viewerRole();
+  // New Hire Request details, approval state, and (for editors) edit options.
+  const nhr = dbCandidate ? await getNhrView(id) : null;
+  // NHR held for (or rejected at) Super Admin approval — no checklist exists yet.
+  const nhrHeld =
+    !!nhr &&
+    !checklist &&
+    (nhr.approval.status === "pending" || nhr.approval.status === "rejected");
+  const nhrEdit = nhr && can(role, "editNhr") ? await nhrOptions() : null;
 
   // Build a CandidateDetail — from DB or mock
   let c: CandidateDetail | undefined;
@@ -278,13 +292,22 @@ export default async function CandidateRecordPage({
     const mockDetail = getCandidate(id); // may return undefined for DB-only candidates
     c = {
       ...summary,
-      nextBestAction: checklist
-        ? liveNextAction(checklist, placed, dbCandidate.firstName)
-        : (mockDetail?.nextBestAction ?? {
-            title: "Review candidate progress",
-            detail: `${summary.name} is in ${summary.stage}. ${summary.startInDays > 0 ? `Start date is ${summary.startDateLabel}.` : ""}`,
-            cta: "Open tasks",
-          }),
+      nextBestAction: nhrHeld
+        ? {
+            title:
+              nhr!.approval.status === "rejected"
+                ? "New hire request was rejected"
+                : "Waiting for Super Admin approval",
+            detail: nhr!.approval.exceptions.join("; "),
+            cta: "",
+          }
+        : checklist
+          ? liveNextAction(checklist, placed, dbCandidate.firstName)
+          : (mockDetail?.nextBestAction ?? {
+              title: "Review candidate progress",
+              detail: `${summary.name} is in ${summary.stage}. ${summary.startInDays > 0 ? `Start date is ${summary.startDateLabel}.` : ""}`,
+              cta: "Open tasks",
+            }),
       aiSummary:
         mockDetail?.aiSummary ??
         `${summary.name.split(" ")[0]} is in ${summary.stage} for ${summary.client} (${summary.employmentType}), starting ${summary.startDateLabel}. Risk is ${summary.risk.replace("-", " ")}; ${summary.progress}% complete.`,
@@ -404,6 +427,19 @@ export default async function CandidateRecordPage({
                   }}
                 />
               )}
+              {nhr && nhrEdit && (
+                <NhrEditSheet
+                  candidateId={id}
+                  values={nhr.values}
+                  options={{
+                    accountExecutives: nhrEdit.accountExecutives,
+                    recruiters: nhrEdit.recruiters,
+                    recruitingManagers: nhrEdit.recruitingManagers,
+                    onboarders: nhrEdit.onboarders,
+                    contacts: nhr.contacts,
+                  }}
+                />
+              )}
               {checklist && (
                 <Button
                   size="sm"
@@ -421,7 +457,7 @@ export default async function CandidateRecordPage({
                   <ArrowRight className="size-4" />
                 </Button>
               )}
-              {!checklist && (
+              {!checklist && !nhr && (
                 <InitiateOnboardingButton
                   prefill={{
                     firstName: c.name.split(" ")[0],
@@ -435,7 +471,7 @@ export default async function CandidateRecordPage({
                   }}
                 />
               )}
-              {!checklist && (
+              {!checklist && !nhr && (
                 <Button size="sm">
                   {c.nextBestAction.cta}
                   <ArrowRight className="size-4" />
@@ -454,6 +490,15 @@ export default async function CandidateRecordPage({
       </div>
 
       <PageContainer className="flex flex-col gap-5">
+        {/* NHR exception approval (§25) */}
+        {nhr && (
+          <NhrApprovalBanner
+            candidateId={id}
+            info={nhr.approval}
+            canApprove={can(role, "approve")}
+          />
+        )}
+
         {/* Next Best Action (§41.1) */}
         <section className="border-primary/30 bg-primary/5 mt-5 rounded-xl border p-4">
           <p className="text-data-label text-primary">Next best action</p>
@@ -566,6 +611,7 @@ export default async function CandidateRecordPage({
                     </span>
                   </TabsTrigger>
                 )}
+                {nhr && <TabsTrigger value="nhr">NHR</TabsTrigger>}
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="timeline">Timeline</TabsTrigger>
                 <TabsTrigger value="tasks">Tasks</TabsTrigger>
@@ -596,6 +642,34 @@ export default async function CandidateRecordPage({
                     canReview={can(role, "review")}
                     canBilling={can(role, "billing")}
                   />
+                </TabsContent>
+              )}
+
+              {/* New Hire Request details (read-only for the onboarder) */}
+              {nhr && (
+                <TabsContent value="nhr" className="mt-4 flex flex-col gap-3">
+                  {nhr.sections.map((sec) => (
+                    <section
+                      key={sec.title}
+                      className="bg-card rounded-xl border shadow-xs"
+                    >
+                      <h3 className="text-card-heading bg-primary/[0.04] border-b px-4 py-2">
+                        {sec.title}
+                      </h3>
+                      <dl className="grid gap-x-6 gap-y-2 p-4 text-sm sm:grid-cols-2">
+                        {sec.rows.map((r) => (
+                          <div key={r.label} className="flex gap-2">
+                            <dt className="text-muted-foreground w-40 shrink-0">
+                              {r.label}
+                            </dt>
+                            <dd className="min-w-0 font-medium break-words">
+                              {r.value}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </section>
+                  ))}
                 </TabsContent>
               )}
 
@@ -725,7 +799,16 @@ export default async function CandidateRecordPage({
           {/* Right context panel (§100.1) */}
           <aside className="flex flex-col gap-4">
             {/* Live records: facts from the checklist; demo records: AI panel (§105, §100.1) */}
-            {checklist ? (
+            {nhrHeld ? (
+              <div className="bg-card rounded-xl border p-4 shadow-xs">
+                <h3 className="text-card-heading mb-1">Status summary</h3>
+                <p className="text-muted-foreground text-sm">
+                  {nhr!.approval.status === "rejected"
+                    ? "This NHR was rejected. Submit a corrected New Hire Request to start onboarding."
+                    : "The NHR is held for Super Admin approval. The checklist, onboarder queue, and candidate invite start once it's approved."}
+                </p>
+              </div>
+            ) : checklist ? (
               <div className="bg-card rounded-xl border p-4 shadow-xs">
                 <h3 className="text-card-heading mb-2">Status summary</h3>
                 <ul className="flex flex-col gap-1.5 text-sm">
