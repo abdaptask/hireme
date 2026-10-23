@@ -42,6 +42,7 @@ export const REPORT_CATALOG: ReportCategory[] = [
       { name: "Consultant Contact", slug: "consultant-contact" },
       { name: "WC New Hire Report", slug: "wc-new-hire" },
       { name: "Clients Invoice Report", slug: "clients-invoice" },
+      { name: "Add / Drop Report — week · month · quarter · $", slug: "add-drop" },
       { name: "Add Drop Reports", slug: "add-drop-reports", hasSubReports: true },
       { name: "Commission Report", slug: "commission" },
       { name: "Client Add Drop Summary", slug: "client-add-drop-summary" },

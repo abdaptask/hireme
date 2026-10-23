@@ -14,10 +14,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { PERSONAS, type Persona } from "@/lib/nav";
+import { useEntitlements } from "@/components/providers/entitlements-provider";
 import { cn } from "@/lib/utils";
 
 export function WorkspaceSwitcher({ current }: { current: Persona }) {
   const router = useRouter();
+  const { setViewAs } = useEntitlements();
+
+  // Switching workspace switches the role the app renders for, so navigation,
+  // reports, and data scope all follow (§5, §121.7 role preview).
+  function switchTo(p: Persona) {
+    setViewAs(p.id);
+    router.push(p.home);
+  }
 
   return (
     <DropdownMenu>
@@ -49,7 +58,7 @@ export function WorkspaceSwitcher({ current }: { current: Persona }) {
         {PERSONAS.map((p) => (
           <DropdownMenuItem
             key={p.id}
-            onClick={() => router.push(p.home)}
+            onClick={() => switchTo(p)}
             className="gap-2.5 py-2"
           >
             <span className="bg-muted text-foreground flex size-8 items-center justify-center rounded-md">

@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useLocalStorage } from "@/lib/use-stored";
 import {
   ADMIN_ROLE,
@@ -12,6 +13,17 @@ import {
 
 const VISIBILITY_KEY = "hireme.entitlements";
 const VIEW_AS_KEY = "hireme.viewAs";
+/** Mirrors the "view as" role so server components can enforce access (§42). */
+const VIEW_AS_COOKIE = "hireme.viewAs";
+
+function readRoleCookie(): string | null {
+  const hit = document.cookie.split("; ").find((c) => c.startsWith(`${VIEW_AS_COOKIE}=`));
+  return hit ? decodeURIComponent(hit.slice(VIEW_AS_COOKIE.length + 1)) : null;
+}
+
+function writeRoleCookie(role: string) {
+  document.cookie = `${VIEW_AS_COOKIE}=${encodeURIComponent(role)}; path=/; max-age=31536000; samesite=lax`;
+}
 
 type EntitlementsContextValue = {
   /** The role the app is currently rendered for (real session role later). */
@@ -56,6 +68,16 @@ export function EntitlementsProvider({
     JSON.stringify(defaultVisibility()),
   );
   const [viewAs, setViewAsRaw] = useLocalStorage(VIEW_AS_KEY, ADMIN_ROLE);
+  const router = useRouter();
+
+  // Keep the server-visible cookie in step with the stored role; re-render
+  // server components (report catalog, access checks) when it changes.
+  useEffect(() => {
+    if (readRoleCookie() !== viewAs) {
+      writeRoleCookie(viewAs);
+      router.refresh();
+    }
+  }, [viewAs, router]);
 
   const visibility = useMemo(
     () => parseVisibility(rawVisibility),
@@ -105,7 +127,11 @@ export function EntitlementsProvider({
   );
 
   const setViewAs = useCallback(
-    (role: RoleId) => setViewAsRaw(role),
+    (role: RoleId) => {
+      // Write the cookie first so an immediate navigation renders for the new role.
+      writeRoleCookie(role);
+      setViewAsRaw(role);
+    },
     [setViewAsRaw],
   );
 

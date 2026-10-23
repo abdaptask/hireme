@@ -39,11 +39,31 @@ function mapItemStatus(s: string): PackageItemStatus {
   return m[s] ?? "included";
 }
 
+/** Hand-written seed rows use Title Case section labels — normalize to UI ids. */
+function mapSection(s: string): OnboardingPackage["items"][0]["section"] {
+  const k = s.toLowerCase();
+  if (/tax|payroll/.test(k)) return "tax-payroll";
+  if (/screen|background|drug/.test(k)) return "screening";
+  if (/train/.test(k)) return "training";
+  if (/provision|it |equipment|access/.test(k)) return "it-provisioning";
+  if (/approv/.test(k)) return "approvals";
+  if (/optional/.test(k)) return "optional-documents";
+  return "required-documents";
+}
+
 // ─────────────────────────────────────────────────────────
 // Row type
 // ─────────────────────────────────────────────────────────
 
 type PackageRow = Awaited<ReturnType<typeof fetchPackageRows>>[number];
+
+const PACKAGE_INCLUDE = {
+  client: { select: { name: true } },
+  items: { orderBy: { section: "asc" as const } },
+  rules: true,
+  approvals: { orderBy: { approvedAt: "desc" as const } },
+  dispatches: { orderBy: { sentAt: "desc" as const }, take: 5 },
+};
 
 async function fetchPackageRows() {
   return db.package.findMany({
@@ -88,7 +108,7 @@ function rowToPackage(p: PackageRow): OnboardingPackage {
 
     items: p.items.map((i) => ({
       id: i.id,
-      section: i.section as OnboardingPackage["items"][0]["section"],
+      section: mapSection(i.section),
       type: i.type as OnboardingPackage["items"][0]["type"],
       label: i.label,
       required: i.required,
@@ -134,4 +154,10 @@ function rowToPackage(p: PackageRow): OnboardingPackage {
 export async function getDbPackages(): Promise<OnboardingPackage[]> {
   const rows = await fetchPackageRows();
   return rows.map(rowToPackage);
+}
+
+/** Single package for the detail page (§102). */
+export async function getDbPackage(id: string): Promise<OnboardingPackage | undefined> {
+  const row = await db.package.findUnique({ where: { id }, include: PACKAGE_INCLUDE });
+  return row ? rowToPackage(row) : undefined;
 }

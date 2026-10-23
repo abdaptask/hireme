@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { SubReportView, SUB_REPORT_CONFIG } from "./view";
+import { SubReportView } from "./view";
+import { SUB_REPORT_CONFIG } from "./config";
 
 export async function generateMetadata({
   params,
