@@ -16,7 +16,9 @@ import { AppHeader } from "@/components/shell/app-header";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { LaunchpadSheet } from "@/components/launchpad/launchpad-sheet";
 import { RoleSwitcher, PreviewBanner } from "@/components/shell/role-switcher";
-import { DEFAULT_PERSONA } from "@/lib/nav";
+import { RouteGuard } from "@/components/shell/route-guard";
+import { getPersona } from "@/lib/nav";
+import { useEntitlements } from "@/components/providers/entitlements-provider";
 import { useLocalStorage } from "@/lib/use-stored";
 import { cn } from "@/lib/utils";
 
@@ -29,10 +31,11 @@ function Brand({
   collapsed?: boolean;
   pinControl?: React.ReactNode;
 }) {
+  const { viewAs } = useEntitlements();
   return (
     <div className="flex h-14 items-center gap-2 border-b px-3.5">
       <Link
-        href="/command-center"
+        href={getPersona(viewAs).home}
         className="flex min-w-0 items-center gap-2 focus-visible:outline-none"
         aria-label="HireMe home"
       >
@@ -91,6 +94,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [launchpadOpen, setLaunchpadOpen] = useState(false);
 
   const expanded = pinned || hovered;
+  // The header reflects the role the app is rendered for (§97.2 workspace switcher).
+  const { viewAs } = useEntitlements();
+  const persona = getPersona(viewAs);
 
   const togglePinned = useCallback(() => {
     setPinnedRaw(pinned ? "0" : "1");
@@ -192,9 +198,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Main column */}
         <div className="flex min-w-0 flex-1 flex-col">
-          <AppHeader persona={DEFAULT_PERSONA} />
+          <AppHeader persona={persona} />
           <PreviewBanner />
-          <main id="main-content" className="flex-1 overflow-auto">{children}</main>
+          <main id="main-content" className="flex-1 overflow-auto">
+            <RouteGuard>{children}</RouteGuard>
+          </main>
         </div>
       </div>
 

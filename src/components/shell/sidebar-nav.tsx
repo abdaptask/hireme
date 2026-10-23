@@ -8,7 +8,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { NAV_SECTIONS, type NavItem } from "@/lib/nav";
+import { NAV_SECTIONS, getPersona, type NavItem } from "@/lib/nav";
 import { useEntitlements } from "@/components/providers/entitlements-provider";
 import { cn } from "@/lib/utils";
 
@@ -54,11 +54,15 @@ export function SidebarNav({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
-  const { isVisible } = useEntitlements();
+  const { isVisible, viewAs } = useEntitlements();
+  // "Home" is the current role's own workspace, not the Super Admin dashboard.
+  const home = getPersona(viewAs).home;
 
   const sections = NAV_SECTIONS.map((section) => ({
     ...section,
-    items: section.items.filter((item) => isVisible(item.id)),
+    items: section.items
+      .filter((item) => isVisible(item.id))
+      .map((item) => (item.id === "home" ? { ...item, href: home } : item)),
   })).filter((section) => section.items.length > 0);
 
   if (sections.length === 0) {

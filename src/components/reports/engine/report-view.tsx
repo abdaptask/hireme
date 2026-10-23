@@ -696,12 +696,15 @@ export function ReportView({
   result,
   refreshedAt,
   filters,
+  viewerLabel,
 }: {
   meta: ReportMeta;
   section: string;
   result: ReportResult;
   refreshedAt: string;
   filters: ReportFilters;
+  /** Row-level scope description when the viewer isn't seeing all data (§72). */
+  viewerLabel?: string | null;
 }) {
   const nav = useParamNav();
   const [drill, setDrill] = useState<{ key: string; value: string; label: string } | null>(null);
@@ -744,6 +747,11 @@ export function ReportView({
             <span className="flex items-center gap-1"><UserRound className="size-3.5" /> Owner: {meta.owner}</span>
             <span>For: {meta.personas.map((p) => PERSONA_LABEL[p] ?? p).join(", ")}</span>
           </div>
+          {viewerLabel && (
+            <p className="bg-info-muted text-info-muted-foreground mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium">
+              <Lock className="size-3" /> Viewing as {viewerLabel}
+            </p>
+          )}
         </div>
         <div className="flex shrink-0 gap-2 print:hidden">
           <Button variant="outline" size="sm" onClick={() => window.print()}>
